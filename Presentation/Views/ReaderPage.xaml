@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage 
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Class="TWCF_BibleApp.Presentation.Views.ReaderPage"
+    BackgroundColor="{DynamicResource PageBackgroundColor}">
+
+    <Grid RowDefinitions="Auto,*,Auto" Padding="20">
+
+        <!--TOP BAR -->
+        <HorizontalStackLayout Grid.Row="0" Spacing="12">
+
+            <!--BOOK SEARCHABLE PICKER -->
+            <VerticalStackLayout>
+                <Entry Placeholder="Book"
+                       Text="{Binding BookSearchQuery, Mode=TwoWay}"
+                       WidthRequest="220"
+                       Focused="BookEntry_Focused"
+                       Completed="BookEntry_Completed"/>
+
+                <CollectionView ItemsSource="{Binding FilteredBooks}"
+                                SelectionMode="Single"
+                                SelectionChanged="BookCollection_SelectionChanged"
+                                HeightRequest="120"
+                                IsVisible="{Binding IsBookDropdownVisible}">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <Label Text="{Binding Name}" Padding="4"/>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </VerticalStackLayout>
+
+            <!--CHAPTER SEARCHABLE PICKER -->
+            <VerticalStackLayout>
+                <Entry Placeholder="Chapter"
+                       Keyboard="Numeric"
+                       Text="{Binding ChapterSearchQuery, Mode=TwoWay}"
+                       WidthRequest="100"
+                       Focused="ChapterEntry_Focused"
+                       Completed="ChapterEntry_Completed"/>
+
+                <CollectionView x:Name="ChapterCollection"
+                                ItemsSource="{Binding FilteredChapters}"
+                                SelectionMode="Single"
+                                SelectedItem="{Binding SelectedChapter, Mode=TwoWay}"
+                                HeightRequest="120"
+                                IsVisible="{Binding IsChapterDropdownVisible}">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <Label Text="{Binding .}" Padding="4"/>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </VerticalStackLayout>
+
+            <Button Text="🔍 Search"
+                    Command="{Binding GoToSearchCommand}"
+                    WidthRequest="100"
+                    HeightRequest="40"
+                    VerticalOptions="Center"/>
+
+            <Button Text="A+"
+                    Command="{Binding IncreaseFontCommand}"
+                    WidthRequest="48"
+                    HeightRequest="40"/>
+
+            <Button Text="A-"
+                    Command="{Binding DecreaseFontCommand}"
+                    WidthRequest="48"
+                    HeightRequest="40"/>
+
+            <VerticalStackLayout HorizontalOptions="EndAndExpand">
+                <Label Text="Dark"
+                       FontSize="12"
+                       TextColor="{DynamicResource MutedTextColor}"
+                       HorizontalOptions="End"/>
+                <Switch IsToggled="{Binding IsDarkMode}"
+                        HorizontalOptions="End"/>
+            </VerticalStackLayout>
+
+        </HorizontalStackLayout>
+
+        <!--BIBLE TEXT -->
+        <CollectionView Grid.Row="1"
+                        ItemsSource="{Binding Verses}"
+                        x:Name="VersesView"
+                        SelectionMode="None">
+
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <VerticalStackLayout Padding="8" Spacing="6">
+
+                        <Label Text="{Binding VerseNumber}"
+                               FontSize="{Binding Source={x:Reference VersesView}, Path=BindingContext.FontScale, Converter={StaticResource MultiplyFontSizeConverter}}"
+                               FontAttributes="Bold"
+                               TextColor="{DynamicResource MutedTextColor}" />
+
+                        <Label Text="{Binding Text}"
+                               FontSize="{Binding Source={x:Reference VersesView}, Path=BindingContext.FontScale, Converter={StaticResource MultiplyFontSizeConverter}}"
+                               LineHeight="1.4" />
+
+                    </VerticalStackLayout>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <!--BOTTOM NAV -->
+        <HorizontalStackLayout Grid.Row="2"
+                               Spacing="20"
+                               HorizontalOptions="Center"
+                               Padding="10">
+            <Button Text="◀ Previous"
+                    Command="{Binding PreviousChapterCommand}" />
+            <Button Text="Next ▶"
+                    Command="{Binding NextChapterCommand}" />
+        </HorizontalStackLayout>
+
+    </Grid>
+</ContentPage>

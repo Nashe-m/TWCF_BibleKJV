@@ -1,0 +1,21 @@
+﻿<?xml version = "1.0" encoding = "UTF-8" ?>
+<Application xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:conv="clr-namespace:TWCF_BibleApp.Presentation.Components.Converters"
+             x:Class="TWCF_BibleApp.App">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!-- App-level styles (default) -->
+                <ResourceDictionary Source="Resources/Styles/Colors.xaml" />
+                <ResourceDictionary Source="Resources/Styles/Styles.xaml" />
+
+                <!-- Presentation-specific themes (optional overrides) -->
+                <ResourceDictionary Source="Presentation/Themes/Colors.xaml" />
+                <ResourceDictionary Source="Presentation/Themes/Styles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <conv:MultiplyFontSizeConverter x:Key="MultiplyFontSizeConverter" />
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

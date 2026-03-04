@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell
+    x:Class="TWCF_BibleApp.AppShell"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:views="clr-namespace:TWCF_BibleApp.Presentation.Views"
+    xmlns:local="clr-namespace:TWCF_BibleApp"
+    Title="TWCF_BibleApp">
+
+    <!--<ShellContent
+        Title="Home"
+        ContentTemplate="{DataTemplate local:MainPage}"
+        Route="MainPage" />-->
+    
+    <ShellContent
+        Title="Reader"
+        Route="ReaderPage"
+        ContentTemplate="{DataTemplate views:ReaderPage}" />
+
+</Shell>
