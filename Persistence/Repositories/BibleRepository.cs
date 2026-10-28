@@ -1,5 +1,6 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -50,30 +51,39 @@ namespace TWCF_BibleApp.Persistence.Repositories
                 .ToListAsync();
         }
 
-        public async Task<SearchResultsDto> SearchVersesAsync(string query, int translationId, SearchScope scope, int skip, int take, bool matchPrefix = false)
+        // VerseSearch is an FTS5 index over Verses.Text (rowid = Verses.Id), built by Tools/import_usfm.py.
+        private const string SearchFrom = "FROM VerseSearch JOIN Verses v ON v.Id = VerseSearch.rowid JOIN Books b ON b.Id = v.BookId";
+
+        public async Task<SearchResultsDto> SearchVersesAsync(SearchRequest request)
         {
-            var match = BuildMatchExpression(query, matchPrefix);
+            var match = BuildMatchExpression(request.Query, request.AsYouType, request.WordForms);
             if (match == null) return SearchResultsDto.Empty;
 
-            // VerseSearch is an FTS5 index over Verses.Text (rowid = Verses.Id), built by Tools/import_usfm.py.
+            var scope = request.Scope;
             var where = "VerseSearch MATCH @match AND v.TranslationId = @translation";
             if (scope.BookId != null) where += " AND v.BookId = @book";
             if (scope.Testament != null) where += " AND b.Testament = @testament";
-            const string from = "FROM VerseSearch JOIN Verses v ON v.Id = VerseSearch.rowid JOIN Books b ON b.Id = v.BookId";
+
+            // Best match: verses containing the words as typed, side by side, come first; then FTS5's
+            // relevance (bm25, lower is better); then Bible order to keep ties stable.
+            var orderBy = request.Order == SearchOrder.BestMatch
+                ? "CASE WHEN instr(lower(v.Text), lower(@phrase)) > 0 THEN 0 ELSE 1 END, bm25(VerseSearch), b.OrderNumber, v.ChapterNumber, v.VerseNumber"
+                : "b.OrderNumber, v.ChapterNumber, v.VerseNumber";
 
             // A parameter can only belong to one command, so each query gets its own set.
             SqliteParameter[] Parameters() => new[]
             {
                 new SqliteParameter("@match", match),
-                new SqliteParameter("@translation", translationId),
+                new SqliteParameter("@translation", request.TranslationId),
                 new SqliteParameter("@book", scope.BookId ?? 0),
                 new SqliteParameter("@testament", scope.Testament == Testament.New ? "NT" : "OT"),
-                new SqliteParameter("@take", take),
-                new SqliteParameter("@skip", skip),
+                new SqliteParameter("@phrase", PlainWords(request.Query)),
+                new SqliteParameter("@take", request.Take),
+                new SqliteParameter("@skip", request.Skip),
             };
 
             var total = await _db.Database
-                .SqlQueryRaw<int>($"SELECT COUNT(*) AS Value {from} WHERE {where}", Parameters())
+                .SqlQueryRaw<int>($"SELECT COUNT(*) AS Value {SearchFrom} WHERE {where}", Parameters())
                 .SingleAsync();
             if (total == 0) return SearchResultsDto.Empty;
 
@@ -81,7 +91,7 @@ namespace TWCF_BibleApp.Persistence.Repositories
                 .SqlQueryRaw<SearchRow>(
                     "SELECT v.BookId, b.Name AS BookName, v.ChapterNumber, v.VerseNumber, v.Text, " +
                     "highlight(VerseSearch, 0, '<m>', '</m>') AS HighlightedText " +
-                    $"{from} WHERE {where} ORDER BY b.OrderNumber, v.ChapterNumber, v.VerseNumber LIMIT @take OFFSET @skip",
+                    $"{SearchFrom} WHERE {where} ORDER BY {orderBy} LIMIT @take OFFSET @skip",
                     Parameters())
                 .ToListAsync();
 
@@ -100,11 +110,27 @@ namespace TWCF_BibleApp.Persistence.Repositories
             };
         }
 
+        public async Task<IReadOnlyList<BookMatchCount>> CountMatchesByBookAsync(SearchRequest request)
+        {
+            var match = BuildMatchExpression(request.Query, request.AsYouType, request.WordForms);
+            if (match == null) return Array.Empty<BookMatchCount>();
+
+            var rows = await _db.Database
+                .SqlQueryRaw<BookCountRow>(
+                    $"SELECT v.BookId, COUNT(*) AS Count {SearchFrom} WHERE VerseSearch MATCH @match AND v.TranslationId = @translation " +
+                    "GROUP BY v.BookId ORDER BY MIN(b.OrderNumber)",
+                    new SqliteParameter("@match", match), new SqliteParameter("@translation", request.TranslationId))
+                .ToListAsync();
+            return rows.Select(r => new BookMatchCount(r.BookId, r.Count)).ToList();
+        }
+
         /// <summary>
         /// Turns what the user typed into an FTS5 query: every word must appear, "quoted text" must
         /// appear as a phrase. Punctuation is dropped so it can never be read as FTS syntax.
+        /// wordForms lets each unquoted word match longer words; asYouType does that only for a
+        /// last word still being typed.
         /// </summary>
-        internal static string? BuildMatchExpression(string input, bool matchPrefix)
+        internal static string? BuildMatchExpression(string input, bool asYouType, bool wordForms = false)
         {
             var terms = new List<string>();
             var lastIsOpenWord = false;
@@ -112,15 +138,26 @@ namespace TWCF_BibleApp.Persistence.Repositories
             {
                 var words = Regex.Matches(m.Value, @"[\p{L}\p{N}\p{M}]+").Select(w => w.Value).ToList();
                 if (words.Count == 0) continue;
-                terms.Add("\"" + string.Join(" ", words) + "\"");
-                lastIsOpenWord = m.Groups[2].Success;
+                var isWord = m.Groups[2].Success;
+                terms.Add("\"" + string.Join(" ", words) + "\"" + (wordForms && isWord ? "*" : ""));
+                lastIsOpenWord = isWord;
             }
             if (terms.Count == 0) return null;
 
             // Only extend a word that is still being typed, not one followed by a space.
-            if (matchPrefix && lastIsOpenWord && !char.IsWhiteSpace(input![^1]))
+            if (asYouType && lastIsOpenWord && !terms[^1].EndsWith('*') && !char.IsWhiteSpace(input![^1]))
                 terms[^1] += "*";
             return string.Join(" ", terms);
+        }
+
+        // "love, one-another!" -> "love one another", for spotting the exact phrase.
+        private static string PlainWords(string input) =>
+            string.Join(" ", Regex.Matches(input ?? "", @"[\p{L}\p{N}\p{M}']+").Select(w => w.Value));
+
+        private sealed class BookCountRow
+        {
+            public int BookId { get; set; }
+            public int Count { get; set; }
         }
 
         private sealed class SearchRow

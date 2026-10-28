@@ -7,8 +7,7 @@
     xmlns:dto="clr-namespace:TWCF_BibleApp.Application.DTOs"
     xmlns:comp="clr-namespace:TWCF_BibleApp.Presentation.Components"
     x:DataType="vm:SearchViewModel"
-    Title="Search"
-    BackgroundColor="{DynamicResource PageBackgroundColor}">
+    Title="Search">
 
     <Grid RowDefinitions="Auto,Auto,Auto,*"
           Padding="32,28,32,0"
@@ -31,12 +30,10 @@
                        FontSize="15"
                        TextColor="{DynamicResource MutedTextColor}"
                        VerticalOptions="Center" />
-                <Entry Grid.Column="1"
+                <Entry x:Name="QueryEntry"
+                       Grid.Column="1"
                        Text="{Binding SearchQuery}"
                        Placeholder="Search the Bible (use &quot;quotes&quot; for an exact phrase)"
-                       PlaceholderColor="{DynamicResource MutedTextColor}"
-                       TextColor="{DynamicResource PageTextColor}"
-                       BackgroundColor="Transparent"
                        FontSize="16"
                        ReturnType="Search"
                        ReturnCommand="{Binding PerformSearchCommand}"
@@ -49,25 +46,144 @@
             </Grid>
         </Border>
 
-        <Grid Grid.Row="2" ColumnDefinitions="*,Auto">
-            <Label Text="{Binding Summary}"
-                   FontSize="14"
-                   TextColor="{DynamicResource MutedTextColor}"
-                   VerticalOptions="Center" />
-            <ActivityIndicator Grid.Column="1"
-                               IsRunning="{Binding IsBusy}"
-                               IsVisible="{Binding IsBusy}"
-                               HeightRequest="20"
-                               WidthRequest="20"
-                               Color="{DynamicResource AccentColor}" />
-        </Grid>
+        <!-- Filters, recent searches and counts stay put while the results scroll -->
+        <VerticalStackLayout Grid.Row="2" Spacing="14" Padding="0,0,0,8">
 
-        <!-- Results -->
-        <CollectionView Grid.Row="3"
+            <!-- Filters: version, testament, order, word forms -->
+            <FlexLayout Wrap="Wrap" AlignItems="Center">
+                <Picker ItemsSource="{Binding Translations}"
+                        ItemDisplayBinding="{Binding DisplayName, x:DataType=dto:TranslationDto}"
+                        SelectedItem="{Binding SelectedTranslation, Mode=TwoWay}"
+                        WidthRequest="240"
+                        Margin="0,0,10,8"
+                        FontSize="14"
+                        BackgroundColor="{DynamicResource SurfaceColor}"
+                        ToolTipProperties.Text="Bible version to search" />
+
+                <Border Margin="0,0,10,8" Padding="3" StrokeThickness="1" Stroke="{DynamicResource BorderColor}"
+                        StrokeShape="RoundRectangle 10" BackgroundColor="{DynamicResource SurfaceColor}">
+                    <HorizontalStackLayout Spacing="2">
+                        <Button Text="Whole Bible" Style="{StaticResource SegmentButton}" Command="{Binding SetTestamentCommand}" CommandParameter="All">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding IsAllTestaments}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{DynamicResource AccentSoftColor}" />
+                                    <Setter Property="TextColor" Value="{DynamicResource AccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        <Button Text="Old" ToolTipProperties.Text="Old Testament" Style="{StaticResource SegmentButton}" Command="{Binding SetTestamentCommand}" CommandParameter="Old">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding IsOldTestament}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{DynamicResource AccentSoftColor}" />
+                                    <Setter Property="TextColor" Value="{DynamicResource AccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        <Button Text="New" ToolTipProperties.Text="New Testament" Style="{StaticResource SegmentButton}" Command="{Binding SetTestamentCommand}" CommandParameter="New">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding IsNewTestament}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{DynamicResource AccentSoftColor}" />
+                                    <Setter Property="TextColor" Value="{DynamicResource AccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                    </HorizontalStackLayout>
+                </Border>
+
+                <Border Margin="0,0,10,8" Padding="3" StrokeThickness="1" Stroke="{DynamicResource BorderColor}"
+                        StrokeShape="RoundRectangle 10" BackgroundColor="{DynamicResource SurfaceColor}">
+                    <HorizontalStackLayout Spacing="2">
+                        <Button Text="Bible order" Style="{StaticResource SegmentButton}" Command="{Binding SetOrderCommand}" CommandParameter="Bible">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding IsBibleOrder}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{DynamicResource AccentSoftColor}" />
+                                    <Setter Property="TextColor" Value="{DynamicResource AccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        <Button Text="Best match" Style="{StaticResource SegmentButton}" Command="{Binding SetOrderCommand}" CommandParameter="Best">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding IsBestMatch}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{DynamicResource AccentSoftColor}" />
+                                    <Setter Property="TextColor" Value="{DynamicResource AccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                    </HorizontalStackLayout>
+                </Border>
+
+                <HorizontalStackLayout Margin="0,0,0,8" Spacing="2">
+                    <CheckBox IsChecked="{Binding WordForms}" Color="{DynamicResource AccentColor}" VerticalOptions="Center" WidthRequest="32" MinimumWidthRequest="32" />
+                    <Label Text="Include word forms (love → loved, loveth)" FontSize="14" VerticalOptions="Center">
+                        <Label.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="WordForms_Tapped" />
+                        </Label.GestureRecognizers>
+                    </Label>
+                </HorizontalStackLayout>
+            </FlexLayout>
+
+            <!-- Recent searches, until something is searched -->
+            <VerticalStackLayout IsVisible="{Binding HasRecent}" Spacing="8">
+                <Grid ColumnDefinitions="*,Auto">
+                    <Label Text="RECENT SEARCHES" Style="{StaticResource SectionHeaderLabel}" VerticalOptions="Center" />
+                    <Button Grid.Column="1" Style="{StaticResource LinkButton}" FontSize="13" Text="Clear" Command="{Binding ClearRecentCommand}" />
+                </Grid>
+                <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding RecentSearches}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="x:String">
+                            <Border Margin="0,0,8,8" Padding="12,6" StrokeThickness="1" Stroke="{DynamicResource BorderColor}"
+                                    StrokeShape="RoundRectangle 16" BackgroundColor="{DynamicResource SurfaceColor}">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding UseRecentCommand, Source={RelativeSource AncestorType={x:Type vm:SearchViewModel}}, x:DataType=vm:SearchViewModel}"
+                                                          CommandParameter="{Binding .}" />
+                                </Border.GestureRecognizers>
+                                <Label Text="{Binding .}" FontSize="14" />
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </FlexLayout>
+            </VerticalStackLayout>
+
+            <!-- Result count -->
+            <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasSearched}">
+                <Label Text="{Binding Summary}" FontSize="14" TextColor="{DynamicResource MutedTextColor}" VerticalOptions="Center" />
+                <ActivityIndicator Grid.Column="1" IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}"
+                                   HeightRequest="20" WidthRequest="20" Color="{DynamicResource AccentColor}" />
+            </Grid>
+
+            <!-- Matches per book, in one sideways-scrolling row: tap one to see only that book, tap again for all -->
+            <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Default" IsVisible="{Binding HasBookMatches}">
+                <HorizontalStackLayout Spacing="6" Padding="0,0,0,8" BindableLayout.ItemsSource="{Binding BookMatches}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="vm:BookMatchItem">
+                            <Border Padding="10,4" StrokeThickness="1" Stroke="{DynamicResource BorderColor}"
+                                    StrokeShape="RoundRectangle 14" BackgroundColor="{DynamicResource SurfaceColor}">
+                                <Border.Triggers>
+                                    <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
+                                        <Setter Property="BackgroundColor" Value="{DynamicResource AccentSoftColor}" />
+                                        <Setter Property="Stroke" Value="{DynamicResource AccentColor}" />
+                                    </DataTrigger>
+                                </Border.Triggers>
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding SelectBookCommand, Source={RelativeSource AncestorType={x:Type vm:SearchViewModel}}, x:DataType=vm:SearchViewModel}"
+                                                          CommandParameter="{Binding .}" />
+                                </Border.GestureRecognizers>
+                                <Label Text="{Binding Label}" FontSize="13" />
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </HorizontalStackLayout>
+            </ScrollView>
+        </VerticalStackLayout>
+
+        <CollectionView x:Name="ResultsList"
+                        Grid.Row="3"
                         ItemsSource="{Binding SearchResults}"
                         SelectionMode="None"
                         RemainingItemsThreshold="10"
                         RemainingItemsThresholdReachedCommand="{Binding LoadMoreCommand}">
+
+
             <CollectionView.ItemTemplate>
                 <DataTemplate x:DataType="dto:SearchResultDto">
                     <Border StrokeThickness="0"
@@ -94,6 +210,7 @@
                     </Border>
                 </DataTemplate>
             </CollectionView.ItemTemplate>
+
             <CollectionView.Footer>
                 <Button Style="{StaticResource LinkButton}"
                         Text="Load more results"

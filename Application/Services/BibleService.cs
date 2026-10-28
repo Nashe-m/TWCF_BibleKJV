@@ -40,8 +40,8 @@ namespace TWCF_BibleApp.Application.Services
         public Task<IEnumerable<ChapterDto>> GetChaptersForBookAsync(int bookId) => Locked(() => _repo.GetChaptersForBookAsync(bookId));
         public Task<IEnumerable<VerseDto>> GetChapterVersesAsync(int bookId, int chapterNumber, int translationId) => Locked(() => _repo.GetChapterVersesAsync(bookId, chapterNumber, translationId));
         public Task<IEnumerable<TranslationDto>> GetTranslationsAsync() => Locked(() => _repo.GetTranslationsAsync());
-        public Task<SearchResultsDto> SearchVersesAsync(string query, int translationId, SearchScope scope, int skip, int take, bool matchPrefix = false)
-            => Locked(() => _repo.SearchVersesAsync(query, translationId, scope, skip, take, matchPrefix));
+        public Task<SearchResultsDto> SearchVersesAsync(SearchRequest request) => Locked(() => _repo.SearchVersesAsync(request));
+        public Task<IReadOnlyList<BookMatchCount>> CountMatchesByBookAsync(SearchRequest request) => Locked(() => _repo.CountMatchesByBookAsync(request));
 
         /// <summary>
         /// The text of the given verse ranges, e.g. for listing notes and highlights.

@@ -37,6 +37,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         private List<Note> _chapterNotes = new();
         private bool _initialized;
         private (int BookId, int Chapter, IReadOnlyList<VerseRange> Verses)? _pendingNavigation;
+        private int? _pendingTranslationId;
 
         private readonly List<BookNavItem> _books = new();
         private BookNavItem? _currentBook;
@@ -338,6 +339,17 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             if (!_initialized)
                 await InitializeAsync();
 
+            // A search result opens in the version that was searched.
+            if (_pendingTranslationId is int translationId && Translations.FirstOrDefault(t => t.Id == translationId) is { } translation
+                && translation.Id != SelectedTranslation?.Id)
+            {
+                _selectedTranslation = translation;   // not the setter: it would load the old chapter first
+                OnPropertyChanged(nameof(SelectedTranslation));
+                OnPropertyChanged(nameof(HasWordsOfJesus));
+                _pendingNavigation ??= (CurrentBookId, CurrentChapter, Array.Empty<VerseRange>());
+            }
+            _pendingTranslationId = null;
+
             if (_pendingNavigation is { } nav)
             {
                 _pendingNavigation = null;
@@ -350,10 +362,11 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             }
         }
 
-        // Shell passes ?bookId=&chapter=&verse=[&to=] when a search result, note or highlight is opened.
+        // Shell passes ?bookId=&chapter=&verse=[&to=][&t=] when a search result, note or highlight is opened.
         public void ApplyQueryAttributes(IDictionary<string, object> query)
         {
             // Applied by OnAppearingAsync, which Shell calls right after this.
+            _pendingTranslationId = TryGetInt(query, "t", out var t) ? t : null;
             if (!TryGetInt(query, "bookId", out var bookId) || !TryGetInt(query, "chapter", out var chapter)) return;
 
             IReadOnlyList<VerseRange> verses = Array.Empty<VerseRange>();
@@ -644,7 +657,8 @@ namespace TWCF_BibleApp.Presentation.ViewModels
                 try
                 {
                     if (token.IsCancellationRequested) return;
-                    results = await _bibleService.SearchVersesAsync(text, SelectedTranslation?.Id ?? 1, SearchScope.All, 0, SuggestionCount, matchPrefix: true);
+                    results = await _bibleService.SearchVersesAsync(
+                        new SearchRequest(text, SelectedTranslation?.Id ?? 1) { Take = SuggestionCount, AsYouType = true });
                 }
                 catch (Exception ex)
                 {
