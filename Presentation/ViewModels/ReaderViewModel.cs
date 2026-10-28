@@ -9,17 +9,12 @@ using System.Threading.Tasks;
 using TWCF_BibleApp.Application.DTOs;
 using TWCF_BibleApp.Application.Services;
 using TWCF_BibleApp.Domain;
-using TWCF_BibleApp.Presentation.Themes;
+using TWCF_BibleApp.Presentation.Services;
 
 namespace TWCF_BibleApp.Presentation.ViewModels
 {
     public class ReaderViewModel : System.ComponentModel.INotifyPropertyChanged, IQueryAttributable
     {
-        // Reading font size in points = BaseFontSize * FontScale (FontScale is what UserSetting stores).
-        private const double BaseFontSize = 14.0;
-        private const double MinFontSize = 16.0;
-        private const double MaxFontSize = 144.0;
-        private const double DefaultFontSize = 28.0;
         private const int SuggestionCount = 8;
 
         // Page widths (device-independent units) below which the reader rearranges itself.
@@ -28,10 +23,10 @@ namespace TWCF_BibleApp.Presentation.ViewModels
 
         private readonly BibleService _bibleService;
         private readonly UserService _userService;
+        private readonly AppSettings _settings;
 
         // BibleDataContext and UserDataContext are shared, so never run two queries at once.
         private readonly SemaphoreSlim _loadLock = new(1, 1);
-        private CancellationTokenSource? _saveDebounce;
         private CancellationTokenSource? _suggestDebounce;
         private CancellationTokenSource? _statusTimer;
         private List<Note> _chapterNotes = new();
@@ -52,10 +47,12 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         public event EventHandler<int>? ScrollRequested;
         public event EventHandler<bool>? ProjectorModeChanged;
 
-        public ReaderViewModel(BibleService bibleService, UserService userService)
+        public ReaderViewModel(BibleService bibleService, UserService userService, AppSettings settings)
         {
             _bibleService = bibleService ?? throw new ArgumentNullException(nameof(bibleService));
             _userService = userService ?? throw new ArgumentNullException(nameof(userService));
+            _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            _settings.PropertyChanged += OnSettingChanged;
 
             PreviousChapterCommand = new AsyncRelayCommand(GoToPreviousChapterAsync);
             NextChapterCommand = new AsyncRelayCommand(GoToNextChapterAsync);
@@ -64,11 +61,11 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             SubmitSearchCommand = new AsyncRelayCommand(SubmitSearchAsync);
             IncreaseFontCommand = new RelayCommand(() => SetFontSize(ReadingFontSize < 40 ? ReadingFontSize + 2 : ReadingFontSize * 1.1));
             DecreaseFontCommand = new RelayCommand(() => SetFontSize(ReadingFontSize <= 40 ? ReadingFontSize - 2 : ReadingFontSize / 1.1));
-            ResetFontCommand = new RelayCommand(() => SetFontSize(DefaultFontSize));
+            ResetFontCommand = new RelayCommand(() => SetFontSize(AppSettings.DefaultFontSize));
             ToggleSidebarCommand = new RelayCommand(() => IsSidebarOpen = !IsSidebarOpen);
             ToggleProjectorCommand = new RelayCommand(() => IsProjectorMode = !IsProjectorMode);
             ExitProjectorCommand = new RelayCommand(() => IsProjectorMode = false);
-            ToggleThemeCommand = new RelayCommand(() => IsDarkMode = !IsDarkMode);
+            ToggleThemeCommand = new RelayCommand(ToggleTheme);
             ToggleWordsOfJesusCommand = new RelayCommand(() => ShowWordsOfJesus = !ShowWordsOfJesus);
             OpenSuggestionCommand = new AsyncRelayCommand<SearchSuggestion>(OpenSuggestionAsync);
             SeeAllResultsCommand = new AsyncRelayCommand(() => OpenSearchPageAsync(SearchText.Trim()));
@@ -148,30 +145,15 @@ namespace TWCF_BibleApp.Presentation.ViewModels
                 _selectedTranslation = value;
                 OnPropertyChanged(nameof(SelectedTranslation));
                 OnPropertyChanged(nameof(HasWordsOfJesus));
+                _settings.TranslationId = value.Id;
                 if (_initialized)
                     _ = NavigateToAsync(CurrentBookId, CurrentChapter);
             }
         }
 
-        // ---- Display settings ------------------------------------------------------------
+        // ---- Display settings (stored in AppSettings, shared with the Settings page) -------
 
-        private double _readingFontSize = DefaultFontSize;
-        public double ReadingFontSize
-        {
-            get => _readingFontSize;
-            private set
-            {
-                if (!SetField(ref _readingFontSize, value)) return;
-                OnPropertyChanged(nameof(VerseNumberFontSize));
-                OnPropertyChanged(nameof(NoteMarkerFontSize));
-                OnPropertyChanged(nameof(NoteMarkerSize));
-                OnPropertyChanged(nameof(ChapterTitleFontSize));
-                OnPropertyChanged(nameof(VerseSpacing));
-                OnPropertyChanged(nameof(FontSizeLabel));
-                OnPropertyChanged(nameof(ReadingColumnWidth));
-            }
-        }
-
+        public double ReadingFontSize => _settings.FontSize;
         public double VerseNumberFontSize => Math.Max(11, ReadingFontSize * 0.55);
         // The note icon beside a verse grows with the text so it stays easy to hit.
         public double NoteMarkerFontSize => Math.Max(16, ReadingFontSize * 0.5);
@@ -179,34 +161,97 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         public double ChapterTitleFontSize => Math.Clamp(ReadingFontSize * 1.6, 40, 140);
         public double VerseSpacing => ReadingFontSize * 0.5;
         public string FontSizeLabel => $"{ReadingFontSize:0} pt";
+        public double LineSpacing => _settings.LineSpacing;
+        public bool ShowVerseNumbers => _settings.ShowVerseNumbers;
 
         // Keep lines a readable length on a desktop; use the whole screen when projecting.
         public double ReadingColumnWidth => IsProjectorMode ? double.PositiveInfinity : Math.Max(760, ReadingFontSize * 30);
 
-        private bool _isDarkMode;
+        // The colours showing now; while projecting this can be the projector's own theme.
         public bool IsDarkMode
         {
-            get => _isDarkMode;
+            get => _settings.IsDarkActive;
             set
             {
-                if (!SetField(ref _isDarkMode, value)) return;
-                ThemeManager.Apply(value);
-                OnPropertyChanged(nameof(ThemeGlyph));
-                ApplyAnnotations();
-                QueueSaveSettings();
+                if (value != IsDarkMode) ToggleTheme();
             }
         }
 
         // Red letter: words of Jesus in colour. Only some versions (KJV, WEB) have the markup.
-        private bool _showWordsOfJesus = true;
         public bool ShowWordsOfJesus
         {
-            get => _showWordsOfJesus;
-            set
+            get => _settings.ShowWordsOfJesus;
+            set => _settings.ShowWordsOfJesus = value;
+        }
+
+        // The sun/moon button flips whatever is showing: the projector theme while projecting with
+        // one chosen, otherwise the app theme (leaving "System" for an explicit choice).
+        private void ToggleTheme()
+        {
+            var dark = !_settings.IsDarkActive;
+            if (IsProjectorMode && _settings.ProjectorTheme != Domain.Enums.ProjectorTheme.SameAsApp)
+                _settings.ProjectorTheme = dark ? Domain.Enums.ProjectorTheme.Dark : Domain.Enums.ProjectorTheme.Light;
+            else
+                _settings.Theme = dark ? Domain.Enums.ThemePreference.Dark : Domain.Enums.ThemePreference.Light;
+        }
+
+        // Keeps the reader in step when a setting changes here or on the Settings page.
+        private void OnSettingChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            switch (e.PropertyName)
             {
-                if (SetField(ref _showWordsOfJesus, value))
-                    QueueSaveSettings();
+                case nameof(AppSettings.FontSize):
+                    OnPropertyChanged(nameof(ReadingFontSize));
+                    OnPropertyChanged(nameof(VerseNumberFontSize));
+                    OnPropertyChanged(nameof(NoteMarkerFontSize));
+                    OnPropertyChanged(nameof(NoteMarkerSize));
+                    OnPropertyChanged(nameof(ChapterTitleFontSize));
+                    OnPropertyChanged(nameof(VerseSpacing));
+                    OnPropertyChanged(nameof(FontSizeLabel));
+                    OnPropertyChanged(nameof(ReadingColumnWidth));
+                    break;
+                case nameof(AppSettings.IsDarkActive):
+                    OnPropertyChanged(nameof(IsDarkMode));
+                    OnPropertyChanged(nameof(ThemeGlyph));
+                    ApplyAnnotations();
+                    break;
+                case nameof(AppSettings.ShowWordsOfJesus):
+                    OnPropertyChanged(nameof(ShowWordsOfJesus));
+                    break;
+                case nameof(AppSettings.LineSpacing):
+                    OnPropertyChanged(nameof(LineSpacing));
+                    break;
+                case nameof(AppSettings.ShowVerseNumbers):
+                    OnPropertyChanged(nameof(ShowVerseNumbers));
+                    break;
+                case nameof(AppSettings.ProjectorMargins):
+                    OnPropertyChanged(nameof(ReadingPadding));
+                    break;
+                case nameof(AppSettings.ShowAnnotationsWhenProjecting):
+                    ApplyAnnotations();
+                    break;
+                case nameof(AppSettings.MarkJumpWhenProjecting):
+                    if (IsProjectorMode && !_settings.MarkJumpWhenProjecting) ClearJumpMarker();
+                    break;
+                case nameof(AppSettings.TranslationId):
+                    // Changed on the Settings page.
+                    if (Translations.FirstOrDefault(t => t.Id == _settings.TranslationId) is { } t && t.Id != SelectedTranslation?.Id)
+                        SelectedTranslation = t;
+                    break;
+                case "":
+                    // Everything was (re)loaded.
+                    foreach (var name in new[] { nameof(ReadingFontSize), nameof(VerseNumberFontSize), nameof(NoteMarkerFontSize),
+                                 nameof(NoteMarkerSize), nameof(ChapterTitleFontSize), nameof(VerseSpacing), nameof(FontSizeLabel),
+                                 nameof(ReadingColumnWidth), nameof(ShowWordsOfJesus), nameof(LineSpacing), nameof(ShowVerseNumbers),
+                                 nameof(ReadingPadding) })
+                        OnPropertyChanged(name);
+                    break;
             }
+        }
+
+        private void ClearJumpMarker()
+        {
+            foreach (var v in Verses) v.IsTarget = false;
         }
 
         public bool HasWordsOfJesus => SelectedTranslation?.HasWordsOfJesus == true;
@@ -239,7 +284,9 @@ namespace TWCF_BibleApp.Presentation.ViewModels
                     IsDisplayMenuOpen = false;
                     CloseNoteEditor();
                     ClearSelection();
+                    if (!_settings.MarkJumpWhenProjecting) ClearJumpMarker();
                 }
+                _settings.SetProjecting(value);
                 ApplyAnnotations();
                 OnPropertyChanged(nameof(IsActionBarVisible));
                 OnPropertyChanged(nameof(IsChromeVisible));
@@ -254,7 +301,13 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         public bool IsChromeVisible => !IsProjectorMode;
         public bool IsSidebarVisible => IsSidebarOpen && !IsProjectorMode;
         public Thickness ReadingPadding =>
-            IsProjectorMode ? new Thickness(72, 48, 72, 96)
+            IsProjectorMode ? _settings.ProjectorMargins switch
+            {
+                // Wide suits projectors that crop the picture's edges.
+                Domain.Enums.ProjectorMargins.Narrow => new Thickness(32, 24, 32, 64),
+                Domain.Enums.ProjectorMargins.Wide => new Thickness(160, 72, 160, 120),
+                _ => new Thickness(72, 48, 72, 96),
+            }
             : IsNarrow ? new Thickness(20, 24, 20, 48)
             : new Thickness(48, 40, 48, 64);
 
@@ -398,7 +451,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         private async Task InitializeAsync()
         {
             var books = await _bibleService.GetBooksAsync();
-            var setting = await _userService.GetUserSettingAsync();
+            await _settings.LoadAsync();
             var translations = await _bibleService.GetTranslationsAsync();
 
             _books.Clear();
@@ -413,25 +466,18 @@ namespace TWCF_BibleApp.Presentation.ViewModels
 
             Translations.Clear();
             foreach (var t in translations) Translations.Add(t);
-            _selectedTranslation = Translations.FirstOrDefault(t => t.Id == setting?.LastTranslationId) ?? Translations.FirstOrDefault();
+            _selectedTranslation = Translations.FirstOrDefault(t => t.Id == _settings.TranslationId) ?? Translations.FirstOrDefault();
             OnPropertyChanged(nameof(SelectedTranslation));
             OnPropertyChanged(nameof(HasWordsOfJesus));
-
-            if (setting != null)
-            {
-                ShowWordsOfJesus = setting.ShowWordsOfJesus;
-                ReadingFontSize = Math.Clamp(Math.Round(BaseFontSize * setting.FontScale), MinFontSize, MaxFontSize);
-                _isDarkMode = setting.Theme == Domain.Enums.ThemePreference.Dark;
-                OnPropertyChanged(nameof(IsDarkMode));
-                OnPropertyChanged(nameof(ThemeGlyph));
-            }
-            ThemeManager.Apply(IsDarkMode);
+            OnSettingChanged(this, new System.ComponentModel.PropertyChangedEventArgs(""));
+            OnPropertyChanged(nameof(IsDarkMode));
+            OnPropertyChanged(nameof(ThemeGlyph));
 
             _initialized = true;
 
-            var startBook = _books.FirstOrDefault(b => b.Book.Id == setting?.LastBookId) ?? _books.FirstOrDefault();
+            var startBook = _books.FirstOrDefault(b => b.Book.Id == _settings.LastBookId) ?? _books.FirstOrDefault();
             if (startBook != null)
-                await NavigateToAsync(startBook.Book.Id, Math.Max(1, setting?.LastChapterNumber ?? 1));
+                await NavigateToAsync(startBook.Book.Id, Math.Max(1, _settings.LastChapter));
         }
 
         /// <summary>Shows a chapter, optionally scrolling to and marking a verse.</summary>
@@ -474,7 +520,10 @@ namespace TWCF_BibleApp.Presentation.ViewModels
                 var targetIndex = -1;
                 foreach (var v in chapterVerses)
                 {
-                    var item = new VerseItem(v) { IsTarget = verses.Any(r => r.Contains(v.VerseNumber)) };
+                    var item = new VerseItem(v)
+                    {
+                        IsTarget = (!IsProjectorMode || _settings.MarkJumpWhenProjecting) && verses.Any(r => r.Contains(v.VerseNumber)),
+                    };
                     if (item.IsTarget && targetIndex < 0) targetIndex = Verses.Count;
                     Verses.Add(item);
                 }
@@ -817,7 +866,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         // Highlights and note markers are hidden while projecting.
         private void ApplyAnnotations()
         {
-            var show = !IsProjectorMode;
+            var show = !IsProjectorMode || _settings.ShowAnnotationsWhenProjecting;
             var alpha = IsDarkMode ? 0.30f : 0.38f;
             foreach (var v in Verses)
             {
@@ -990,38 +1039,11 @@ namespace TWCF_BibleApp.Presentation.ViewModels
 
         // ---- Settings ----------------------------------------------------------------------
 
-        private void SetFontSize(double size)
-        {
-            ReadingFontSize = Math.Round(Math.Clamp(size, MinFontSize, MaxFontSize));
-            QueueSaveSettings();
-        }
+        private void SetFontSize(double size) => _settings.FontSize = size;
 
-        // Font size and navigation change quickly; write settings once things settle.
         private void QueueSaveSettings()
         {
-            if (!_initialized) return;
-
-            _saveDebounce?.Cancel();
-            var cts = _saveDebounce = new CancellationTokenSource();
-            _ = Task.Delay(600, cts.Token).ContinueWith(async _ =>
-            {
-                await _loadLock.WaitAsync();
-                try
-                {
-                    var setting = new UserSetting(0, CurrentBookId, CurrentChapter, ReadingFontSize / BaseFontSize,
-                        IsDarkMode ? Domain.Enums.ThemePreference.Dark : Domain.Enums.ThemePreference.Light,
-                        SelectedTranslation?.Id ?? 1, ShowWordsOfJesus);
-                    await _userService.SaveUserSettingAsync(setting);
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Saving settings failed: {ex}");
-                }
-                finally
-                {
-                    _loadLock.Release();
-                }
-            }, cts.Token, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
+            if (_initialized) _settings.SetPosition(CurrentBookId, CurrentChapter);
         }
 
         // ---- Helpers -----------------------------------------------------------------------

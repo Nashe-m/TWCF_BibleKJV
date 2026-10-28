@@ -338,7 +338,8 @@
                                                          FontSize="{Binding ReadingFontSize, Source={RelativeSource AncestorType={x:Type vm:ReaderViewModel}}, x:DataType=vm:ReaderViewModel}"
                                                          NumberFontSize="{Binding VerseNumberFontSize, Source={RelativeSource AncestorType={x:Type vm:ReaderViewModel}}, x:DataType=vm:ReaderViewModel}"
                                                          ShowWordsOfJesus="{Binding ShowWordsOfJesus, Source={RelativeSource AncestorType={x:Type vm:ReaderViewModel}}, x:DataType=vm:ReaderViewModel}"
-                                                         LineHeight="1.45" />
+                                                         ShowNumber="{Binding ShowVerseNumbers, Source={RelativeSource AncestorType={x:Type vm:ReaderViewModel}}, x:DataType=vm:ReaderViewModel}"
+                                                         LineHeight="{Binding LineSpacing, Source={RelativeSource AncestorType={x:Type vm:ReaderViewModel}}, x:DataType=vm:ReaderViewModel}" />
                                         <!-- Note marker: opens the note -->
                                         <Button Grid.Column="1"
                                                 Style="{StaticResource IconButton}"

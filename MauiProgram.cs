@@ -1,9 +1,10 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TWCF_BibleApp.Persistence.Contexts;
 using TWCF_BibleApp.Persistence.Repositories;
 using TWCF_BibleApp.Application.Interfaces;
 using TWCF_BibleApp.Application.Services;
+using TWCF_BibleApp.Presentation.Services;
 using TWCF_BibleApp.Presentation.ViewModels;
 using TWCF_BibleApp.Presentation.Views;
 using System.Diagnostics;
@@ -57,6 +58,7 @@ namespace TWCF_BibleApp
             // Application services
             builder.Services.AddSingleton<BibleService>();
             builder.Services.AddSingleton<UserService>();
+            builder.Services.AddSingleton<AppSettings>();
 
             // ViewModels and Pages
             builder.Services.AddTransient<ReaderViewModel>();
@@ -74,6 +76,17 @@ namespace TWCF_BibleApp
             builder.Services.AddTransient<SettingsPage>();
 #if DEBUG
             builder.Logging.AddDebug();
+#endif
+
+#if WINDOWS
+            // WinUI switches reserve room for an "On"/"Off" label we never show; drop it so they
+            // sit tight against the right edge of settings rows.
+            Microsoft.Maui.Handlers.SwitchHandler.Mapper.AppendToMapping("NoOnOffText", (handler, _) =>
+            {
+                handler.PlatformView.OnContent = null;
+                handler.PlatformView.OffContent = null;
+                handler.PlatformView.MinWidth = 0;
+            });
 #endif
 
             var app = builder.Build();

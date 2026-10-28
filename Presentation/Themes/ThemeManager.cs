@@ -14,12 +14,14 @@ namespace TWCF_BibleApp.Presentation.Themes
             "AccentColor", "AccentTextColor", "AccentSoftColor", "ChipColor", "WordsOfJesusColor"
         };
 
-        public static void Apply(bool dark)
+        /// <param name="followSystem">Leave the platform theme in charge (the "System" setting),
+        /// so RequestedThemeChanged still fires when it changes; dark must then match it.</param>
+        public static void Apply(bool dark, bool followSystem = false)
         {
             var app = Microsoft.Maui.Controls.Application.Current;
             if (app == null) return;
 
-            app.UserAppTheme = dark ? AppTheme.Dark : AppTheme.Light;
+            app.UserAppTheme = followSystem ? AppTheme.Unspecified : dark ? AppTheme.Dark : AppTheme.Light;
 
             var prefix = dark ? "Dark" : "Light";
             foreach (var token in Tokens)

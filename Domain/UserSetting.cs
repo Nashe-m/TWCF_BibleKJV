@@ -12,6 +12,13 @@ namespace TWCF_BibleApp.Domain
         public ThemePreference Theme { get; init; } = ThemePreference.System;
         public int LastTranslationId { get; init; } = 1; // 1 = KJV
         public bool ShowWordsOfJesus { get; init; } = true; // red-letter text
+        public double LineSpacing { get; init; } = 1.45;
+        public bool ShowVerseNumbers { get; init; } = true;
+        public ProjectorTheme ProjectorTheme { get; init; } = ProjectorTheme.SameAsApp;
+        public ProjectorMargins ProjectorMargins { get; init; } = ProjectorMargins.Normal;
+        // While projecting, only the text shows unless these are turned on.
+        public bool ShowAnnotationsWhenProjecting { get; init; }
+        public bool MarkJumpWhenProjecting { get; init; } = true;
 
         public UserSetting() { }
 

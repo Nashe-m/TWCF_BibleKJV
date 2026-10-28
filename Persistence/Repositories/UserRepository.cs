@@ -22,35 +22,39 @@ namespace TWCF_BibleApp.Persistence.Repositories
         {
             var e = await _db.UserSettings.AsNoTracking().FirstOrDefaultAsync();
             if (e == null) return null;
-            return new UserSetting(e.Id, e.LastBookId, e.LastChapterNumber, e.FontScale, e.Theme, e.LastTranslationId, e.ShowWordsOfJesus);
+            return new UserSetting(e.Id, e.LastBookId, e.LastChapterNumber, e.FontScale, e.Theme, e.LastTranslationId, e.ShowWordsOfJesus)
+            {
+                LineSpacing = e.LineSpacing,
+                ShowVerseNumbers = e.ShowVerseNumbers,
+                ProjectorTheme = e.ProjectorTheme,
+                ProjectorMargins = e.ProjectorMargins,
+                ShowAnnotationsWhenProjecting = e.ShowAnnotationsWhenProjecting,
+                MarkJumpWhenProjecting = e.MarkJumpWhenProjecting,
+            };
         }
 
+        // There is a single settings row.
         public async Task SaveUserSettingAsync(UserSetting setting)
         {
-            var existing = await _db.UserSettings.FirstOrDefaultAsync();
-            if (existing == null)
+            var entity = await _db.UserSettings.FirstOrDefaultAsync();
+            if (entity == null)
             {
-                var entity = new UserSettingEntity
-                {
-                    LastBookId = setting.LastBookId,
-                    LastChapterNumber = setting.LastChapterNumber,
-                    FontScale = setting.FontScale,
-                    Theme = setting.Theme,
-                    LastTranslationId = setting.LastTranslationId,
-                    ShowWordsOfJesus = setting.ShowWordsOfJesus
-                };
+                entity = new UserSettingEntity();
                 _db.UserSettings.Add(entity);
             }
-            else
-            {
-                existing.LastBookId = setting.LastBookId;
-                existing.LastChapterNumber = setting.LastChapterNumber;
-                existing.FontScale = setting.FontScale;
-                existing.Theme = setting.Theme;
-                existing.LastTranslationId = setting.LastTranslationId;
-                existing.ShowWordsOfJesus = setting.ShowWordsOfJesus;
-                _db.UserSettings.Update(existing);
-            }
+
+            entity.LastBookId = setting.LastBookId;
+            entity.LastChapterNumber = setting.LastChapterNumber;
+            entity.FontScale = setting.FontScale;
+            entity.Theme = setting.Theme;
+            entity.LastTranslationId = setting.LastTranslationId;
+            entity.ShowWordsOfJesus = setting.ShowWordsOfJesus;
+            entity.LineSpacing = setting.LineSpacing;
+            entity.ShowVerseNumbers = setting.ShowVerseNumbers;
+            entity.ProjectorTheme = setting.ProjectorTheme;
+            entity.ProjectorMargins = setting.ProjectorMargins;
+            entity.ShowAnnotationsWhenProjecting = setting.ShowAnnotationsWhenProjecting;
+            entity.MarkJumpWhenProjecting = setting.MarkJumpWhenProjecting;
 
             await _db.SaveChangesAsync();
         }

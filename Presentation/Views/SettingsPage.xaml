@@ -8,20 +8,256 @@
     x:DataType="vm:SettingsViewModel"
     Title="Settings">
 
+    <!-- Changes apply at once and are saved automatically. -->
     <ScrollView>
         <VerticalStackLayout Padding="32,28,32,48" Spacing="24" MaximumWidthRequest="900">
             <Label Text="Settings" Style="{StaticResource PageTitleLabel}" />
 
-            <!-- Display settings move here in Phase 6 -->
             <Border Padding="20"
                     StrokeThickness="1"
                     Stroke="{DynamicResource BorderColor}"
                     StrokeShape="RoundRectangle 12"
                     BackgroundColor="{DynamicResource SurfaceColor}">
-                <VerticalStackLayout Spacing="6">
+                <VerticalStackLayout Spacing="16">
                     <Label Text="DISPLAY" Style="{StaticResource SectionHeaderLabel}" />
-                    <Label Text="Text size, light or dark theme and red letters are in the reader's toolbar for now (Aa on smaller screens)."
-                           TextColor="{DynamicResource MutedTextColor}" />
+                    <VerticalStackLayout Spacing="8">
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="Theme" FontSize="15" FontAttributes="Bold" />
+                            <Label Text="System follows the light or dark setting of this computer or phone." FontSize="13" TextColor="{DynamicResource MutedTextColor}" />
+                        </VerticalStackLayout>
+                        <Border Padding="3" HorizontalOptions="Start" StrokeThickness="1" Stroke="{DynamicResource BorderColor}"
+                                StrokeShape="RoundRectangle 10" BackgroundColor="{DynamicResource PageBackgroundColor}">
+                            <HorizontalStackLayout Spacing="2">
+                                <Button Text="Light" Style="{StaticResource SegmentButton}" Command="{Binding SetThemeCommand}" CommandParameter="Light">
+                                    <Button.Triggers>
+                                        <DataTrigger TargetType="Button" Binding="{Binding IsThemeLight}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{DynamicResource AccentSoftColor}" />
+                                            <Setter Property="TextColor" Value="{DynamicResource AccentColor}" />
+                                        </DataTrigger>
+                                    </Button.Triggers>
+                                </Button>
+                                <Button Text="Dark" Style="{StaticResource SegmentButton}" Command="{Binding SetThemeCommand}" CommandParameter="Dark">
+                                    <Button.Triggers>
+                                        <DataTrigger TargetType="Button" Binding="{Binding IsThemeDark}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{DynamicResource AccentSoftColor}" />
+                                            <Setter Property="TextColor" Value="{DynamicResource AccentColor}" />
+                                        </DataTrigger>
+                                    </Button.Triggers>
+                                </Button>
+                                <Button Text="System" Style="{StaticResource SegmentButton}" Command="{Binding SetThemeCommand}" CommandParameter="System">
+                                    <Button.Triggers>
+                                        <DataTrigger TargetType="Button" Binding="{Binding IsThemeSystem}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{DynamicResource AccentSoftColor}" />
+                                            <Setter Property="TextColor" Value="{DynamicResource AccentColor}" />
+                                        </DataTrigger>
+                                    </Button.Triggers>
+                                </Button>
+                            </HorizontalStackLayout>
+                        </Border>
+                    </VerticalStackLayout>
+                    <BoxView HeightRequest="1" Color="{DynamicResource BorderColor}" />
+                    <VerticalStackLayout Spacing="8">
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="Text size" FontSize="15" FontAttributes="Bold" />
+                            <Label Text="Tap the size to go back to 28 pt. Ctrl + mouse wheel also works in the reader." FontSize="13" TextColor="{DynamicResource MutedTextColor}" />
+                        </VerticalStackLayout>
+                        <Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="4" HorizontalOptions="Start">
+                            <Button Style="{StaticResource IconButton}" Text="&#xE8E7;" Command="{Binding DecreaseFontCommand}" ToolTipProperties.Text="Smaller" />
+                            <Label Grid.Column="1" Text="{Binding FontSizeLabel}" WidthRequest="64" FontSize="15" FontAttributes="Bold"
+                                   HorizontalTextAlignment="Center" VerticalOptions="Center">
+                                <Label.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding ResetFontCommand}" />
+                                </Label.GestureRecognizers>
+                            </Label>
+                            <Button Grid.Column="2" Style="{StaticResource IconButton}" Text="&#xE8E8;" Command="{Binding IncreaseFontCommand}" ToolTipProperties.Text="Larger" />
+                        </Grid>
+                        <!-- Preview in the reading font, spacing and colours -->
+                        <Border Padding="16,12" StrokeThickness="0" StrokeShape="RoundRectangle 10" BackgroundColor="{DynamicResource PageBackgroundColor}">
+                            <Label FontFamily="{StaticResource ScriptureFont}"
+                                   FontSize="{Binding PreviewFontSize}"
+                                   LineHeight="{Binding Settings.LineSpacing}"
+                                   MaxLines="3"
+                                   LineBreakMode="TailTruncation">
+                                <Label.FormattedText>
+                                    <FormattedString>
+                                        <!-- Spans don't inherit the label's font family -->
+                                        <Span Text="16  " FontAttributes="Bold" FontFamily="{StaticResource UiFont}" TextColor="{DynamicResource AccentColor}" />
+                                        <Span FontFamily="{StaticResource ScriptureFont}" TextColor="{DynamicResource PageTextColor}" Text="For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life." />
+                                    </FormattedString>
+                                </Label.FormattedText>
+                            </Label>
+                        </Border>
+                    </VerticalStackLayout>
+                    <BoxView HeightRequest="1" Color="{DynamicResource BorderColor}" />
+                    <VerticalStackLayout Spacing="8">
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="Line spacing" FontSize="15" FontAttributes="Bold" />
+                        </VerticalStackLayout>
+                        <Border Padding="3" HorizontalOptions="Start" StrokeThickness="1" Stroke="{DynamicResource BorderColor}"
+                                StrokeShape="RoundRectangle 10" BackgroundColor="{DynamicResource PageBackgroundColor}">
+                            <HorizontalStackLayout Spacing="2">
+                                <Button Text="Compact" Style="{StaticResource SegmentButton}" Command="{Binding SetLineSpacingCommand}" CommandParameter="Compact">
+                                    <Button.Triggers>
+                                        <DataTrigger TargetType="Button" Binding="{Binding IsSpacingCompact}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{DynamicResource AccentSoftColor}" />
+                                            <Setter Property="TextColor" Value="{DynamicResource AccentColor}" />
+                                        </DataTrigger>
+                                    </Button.Triggers>
+                                </Button>
+                                <Button Text="Normal" Style="{StaticResource SegmentButton}" Command="{Binding SetLineSpacingCommand}" CommandParameter="Normal">
+                                    <Button.Triggers>
+                                        <DataTrigger TargetType="Button" Binding="{Binding IsSpacingNormal}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{DynamicResource AccentSoftColor}" />
+                                            <Setter Property="TextColor" Value="{DynamicResource AccentColor}" />
+                                        </DataTrigger>
+                                    </Button.Triggers>
+                                </Button>
+                                <Button Text="Relaxed" Style="{StaticResource SegmentButton}" Command="{Binding SetLineSpacingCommand}" CommandParameter="Relaxed">
+                                    <Button.Triggers>
+                                        <DataTrigger TargetType="Button" Binding="{Binding IsSpacingRelaxed}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{DynamicResource AccentSoftColor}" />
+                                            <Setter Property="TextColor" Value="{DynamicResource AccentColor}" />
+                                        </DataTrigger>
+                                    </Button.Triggers>
+                                </Button>
+                            </HorizontalStackLayout>
+                        </Border>
+                    </VerticalStackLayout>
+                    <BoxView HeightRequest="1" Color="{DynamicResource BorderColor}" />
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                        <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                            <Label Text="Verse numbers" FontSize="15" FontAttributes="Bold" />
+                        </VerticalStackLayout>
+                        <Switch Grid.Column="1" IsToggled="{Binding Settings.ShowVerseNumbers}" OnColor="{DynamicResource AccentColor}" VerticalOptions="Center" />
+                    </Grid>
+                    <BoxView HeightRequest="1" Color="{DynamicResource BorderColor}" />
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                        <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                            <Label Text="Red letter" FontSize="15" FontAttributes="Bold" />
+                            <Label Text="Words of Jesus in red, in versions that mark them (KJV, WEB)." FontSize="13" TextColor="{DynamicResource MutedTextColor}" />
+                        </VerticalStackLayout>
+                        <Switch Grid.Column="1" IsToggled="{Binding Settings.ShowWordsOfJesus}" OnColor="{DynamicResource AccentColor}" VerticalOptions="Center" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Padding="20"
+                    StrokeThickness="1"
+                    Stroke="{DynamicResource BorderColor}"
+                    StrokeShape="RoundRectangle 12"
+                    BackgroundColor="{DynamicResource SurfaceColor}">
+                <VerticalStackLayout Spacing="16">
+                    <Label Text="BIBLE" Style="{StaticResource SectionHeaderLabel}" />
+                    <VerticalStackLayout Spacing="8">
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="Version" FontSize="15" FontAttributes="Bold" />
+                            <Label Text="The version the reader shows. You can also change it from the reader's toolbar." FontSize="13" TextColor="{DynamicResource MutedTextColor}" />
+                        </VerticalStackLayout>
+                        <Picker ItemsSource="{Binding Translations}"
+                                ItemDisplayBinding="{Binding DisplayName, x:DataType=dto:TranslationDto}"
+                                SelectedItem="{Binding SelectedTranslation, Mode=TwoWay}"
+                                HorizontalOptions="Start"
+                                MinimumWidthRequest="280"
+                                FontSize="15"
+                                BackgroundColor="{DynamicResource PageBackgroundColor}" />
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Padding="20"
+                    StrokeThickness="1"
+                    Stroke="{DynamicResource BorderColor}"
+                    StrokeShape="RoundRectangle 12"
+                    BackgroundColor="{DynamicResource SurfaceColor}">
+                <VerticalStackLayout Spacing="16">
+                    <Label Text="PROJECTOR" Style="{StaticResource SectionHeaderLabel}" />
+                    <VerticalStackLayout Spacing="8">
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="Colours" FontSize="15" FontAttributes="Bold" />
+                            <Label Text="Dark is often easier to read on a projector, whatever the app uses." FontSize="13" TextColor="{DynamicResource MutedTextColor}" />
+                        </VerticalStackLayout>
+                        <Border Padding="3" HorizontalOptions="Start" StrokeThickness="1" Stroke="{DynamicResource BorderColor}"
+                                StrokeShape="RoundRectangle 10" BackgroundColor="{DynamicResource PageBackgroundColor}">
+                            <HorizontalStackLayout Spacing="2">
+                                <Button Text="Same as app" Style="{StaticResource SegmentButton}" Command="{Binding SetProjectorThemeCommand}" CommandParameter="SameAsApp">
+                                    <Button.Triggers>
+                                        <DataTrigger TargetType="Button" Binding="{Binding IsProjectorSameAsApp}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{DynamicResource AccentSoftColor}" />
+                                            <Setter Property="TextColor" Value="{DynamicResource AccentColor}" />
+                                        </DataTrigger>
+                                    </Button.Triggers>
+                                </Button>
+                                <Button Text="Light" Style="{StaticResource SegmentButton}" Command="{Binding SetProjectorThemeCommand}" CommandParameter="Light">
+                                    <Button.Triggers>
+                                        <DataTrigger TargetType="Button" Binding="{Binding IsProjectorLight}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{DynamicResource AccentSoftColor}" />
+                                            <Setter Property="TextColor" Value="{DynamicResource AccentColor}" />
+                                        </DataTrigger>
+                                    </Button.Triggers>
+                                </Button>
+                                <Button Text="Dark" Style="{StaticResource SegmentButton}" Command="{Binding SetProjectorThemeCommand}" CommandParameter="Dark">
+                                    <Button.Triggers>
+                                        <DataTrigger TargetType="Button" Binding="{Binding IsProjectorDark}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{DynamicResource AccentSoftColor}" />
+                                            <Setter Property="TextColor" Value="{DynamicResource AccentColor}" />
+                                        </DataTrigger>
+                                    </Button.Triggers>
+                                </Button>
+                            </HorizontalStackLayout>
+                        </Border>
+                    </VerticalStackLayout>
+                    <BoxView HeightRequest="1" Color="{DynamicResource BorderColor}" />
+                    <VerticalStackLayout Spacing="8">
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="Margins" FontSize="15" FontAttributes="Bold" />
+                            <Label Text="Use Wide if the projector cuts off the edges of the picture." FontSize="13" TextColor="{DynamicResource MutedTextColor}" />
+                        </VerticalStackLayout>
+                        <Border Padding="3" HorizontalOptions="Start" StrokeThickness="1" Stroke="{DynamicResource BorderColor}"
+                                StrokeShape="RoundRectangle 10" BackgroundColor="{DynamicResource PageBackgroundColor}">
+                            <HorizontalStackLayout Spacing="2">
+                                <Button Text="Narrow" Style="{StaticResource SegmentButton}" Command="{Binding SetProjectorMarginsCommand}" CommandParameter="Narrow">
+                                    <Button.Triggers>
+                                        <DataTrigger TargetType="Button" Binding="{Binding IsMarginsNarrow}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{DynamicResource AccentSoftColor}" />
+                                            <Setter Property="TextColor" Value="{DynamicResource AccentColor}" />
+                                        </DataTrigger>
+                                    </Button.Triggers>
+                                </Button>
+                                <Button Text="Normal" Style="{StaticResource SegmentButton}" Command="{Binding SetProjectorMarginsCommand}" CommandParameter="Normal">
+                                    <Button.Triggers>
+                                        <DataTrigger TargetType="Button" Binding="{Binding IsMarginsNormal}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{DynamicResource AccentSoftColor}" />
+                                            <Setter Property="TextColor" Value="{DynamicResource AccentColor}" />
+                                        </DataTrigger>
+                                    </Button.Triggers>
+                                </Button>
+                                <Button Text="Wide" Style="{StaticResource SegmentButton}" Command="{Binding SetProjectorMarginsCommand}" CommandParameter="Wide">
+                                    <Button.Triggers>
+                                        <DataTrigger TargetType="Button" Binding="{Binding IsMarginsWide}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{DynamicResource AccentSoftColor}" />
+                                            <Setter Property="TextColor" Value="{DynamicResource AccentColor}" />
+                                        </DataTrigger>
+                                    </Button.Triggers>
+                                </Button>
+                            </HorizontalStackLayout>
+                        </Border>
+                    </VerticalStackLayout>
+                    <BoxView HeightRequest="1" Color="{DynamicResource BorderColor}" />
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                        <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                            <Label Text="Show highlights and notes" FontSize="15" FontAttributes="Bold" />
+                            <Label Text="Off: only the Bible text is shown while projecting." FontSize="13" TextColor="{DynamicResource MutedTextColor}" />
+                        </VerticalStackLayout>
+                        <Switch Grid.Column="1" IsToggled="{Binding Settings.ShowAnnotationsWhenProjecting}" OnColor="{DynamicResource AccentColor}" VerticalOptions="Center" />
+                    </Grid>
+                    <BoxView HeightRequest="1" Color="{DynamicResource BorderColor}" />
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                        <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                            <Label Text="Mark the verse you go to" FontSize="15" FontAttributes="Bold" />
+                            <Label Text="Shade a verse opened from search or a reference." FontSize="13" TextColor="{DynamicResource MutedTextColor}" />
+                        </VerticalStackLayout>
+                        <Switch Grid.Column="1" IsToggled="{Binding Settings.MarkJumpWhenProjecting}" OnColor="{DynamicResource AccentColor}" VerticalOptions="Center" />
+                    </Grid>
                 </VerticalStackLayout>
             </Border>
 

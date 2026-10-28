@@ -15,6 +15,9 @@ namespace TWCF_BibleApp.Presentation.Components
         public static readonly BindableProperty ShowWordsOfJesusProperty = BindableProperty.Create(
             nameof(ShowWordsOfJesus), typeof(bool), typeof(VerseLabel), true, propertyChanged: Rebuild);
 
+        public static readonly BindableProperty ShowNumberProperty = BindableProperty.Create(
+            nameof(ShowNumber), typeof(bool), typeof(VerseLabel), true, propertyChanged: Rebuild);
+
         public static readonly BindableProperty NumberFontSizeProperty = BindableProperty.Create(
             nameof(NumberFontSize), typeof(double), typeof(VerseLabel), 14.0, propertyChanged: Rebuild);
 
@@ -28,6 +31,12 @@ namespace TWCF_BibleApp.Presentation.Components
         {
             get => (bool)GetValue(ShowWordsOfJesusProperty);
             set => SetValue(ShowWordsOfJesusProperty, value);
+        }
+
+        public bool ShowNumber
+        {
+            get => (bool)GetValue(ShowNumberProperty);
+            set => SetValue(ShowNumberProperty, value);
         }
 
         public double NumberFontSize
@@ -49,11 +58,14 @@ namespace TWCF_BibleApp.Presentation.Components
 
             var formatted = new FormattedString();
 
-            var number = new Span { Text = Verse.Number.ToString(), FontAttributes = FontAttributes.Bold, FontSize = NumberFontSize };
-            number.SetDynamicResource(Span.FontFamilyProperty, "UiFont");
-            number.SetDynamicResource(Span.TextColorProperty, "AccentColor");
-            formatted.Spans.Add(number);
-            formatted.Spans.Add(new Span { Text = "  " });
+            if (ShowNumber)
+            {
+                var number = new Span { Text = Verse.Number.ToString(), FontAttributes = FontAttributes.Bold, FontSize = NumberFontSize };
+                number.SetDynamicResource(Span.FontFamilyProperty, "UiFont");
+                number.SetDynamicResource(Span.TextColorProperty, "AccentColor");
+                formatted.Spans.Add(number);
+                formatted.Spans.Add(new Span { Text = "  " });
+            }
 
             foreach (var segment in Verse.Segments)
             {
