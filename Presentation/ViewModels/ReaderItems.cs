@@ -69,8 +69,32 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             return segments;
         }
 
-        // The verse the user jumped to (e.g. from "Jn 3:16" or a search result).
+        // A verse the user jumped to (e.g. from "Jn 3:16-18" or a search result).
         [ObservableProperty]
         private bool _isTarget;
+    }
+
+    /// <summary>
+    /// A row in the search box dropdown: either "Go to John 3:16" (Reference set) or a verse
+    /// whose text matches what was typed (Result set).
+    /// </summary>
+    public sealed class SearchSuggestion
+    {
+        private SearchSuggestion(BibleReference? reference, SearchResultDto? result)
+        {
+            Reference = reference;
+            Result = result;
+        }
+
+        public static SearchSuggestion GoTo(BibleReference reference) => new(reference, null);
+        public static SearchSuggestion Match(SearchResultDto result) => new(null, result);
+
+        public BibleReference? Reference { get; }
+        public SearchResultDto? Result { get; }
+
+        public bool IsReference => Reference != null;
+        public bool IsMatch => Result != null;
+        public string Title => Reference != null ? $"Go to {Reference.Display}" : Result!.Reference;
+        public string HighlightedText => Result?.HighlightedText ?? "";
     }
 }

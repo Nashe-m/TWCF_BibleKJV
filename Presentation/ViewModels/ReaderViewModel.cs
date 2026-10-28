@@ -21,6 +21,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         private const double MinFontSize = 16.0;
         private const double MaxFontSize = 144.0;
         private const double DefaultFontSize = 28.0;
+        private const int SuggestionCount = 8;
 
         private readonly BibleService _bibleService;
         private readonly UserService _userService;
@@ -28,6 +29,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         // BibleDataContext and UserDataContext are shared, so never run two queries at once.
         private readonly SemaphoreSlim _loadLock = new(1, 1);
         private CancellationTokenSource? _saveDebounce;
+        private CancellationTokenSource? _suggestDebounce;
         private bool _initialized;
         private (int BookId, int Chapter, int? Verse)? _pendingNavigation;
 
@@ -38,6 +40,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         public ObservableCollection<BookNavItem> NewTestamentBooks { get; } = new();
         public ObservableCollection<VerseItem> Verses { get; } = new();
         public ObservableCollection<TranslationDto> Translations { get; } = new();
+        public ObservableCollection<SearchSuggestion> Suggestions { get; } = new();
 
         /// <summary>Raised after a chapter loads: the verse index to scroll to, or -1 for the top.</summary>
         public event EventHandler<int>? ScrollRequested;
@@ -61,6 +64,8 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             ExitProjectorCommand = new RelayCommand(() => IsProjectorMode = false);
             ToggleThemeCommand = new RelayCommand(() => IsDarkMode = !IsDarkMode);
             ToggleWordsOfJesusCommand = new RelayCommand(() => ShowWordsOfJesus = !ShowWordsOfJesus);
+            OpenSuggestionCommand = new AsyncRelayCommand<SearchSuggestion>(OpenSuggestionAsync);
+            SeeAllResultsCommand = new AsyncRelayCommand(() => OpenSearchPageAsync(SearchText.Trim()));
         }
 
         public IAsyncRelayCommand PreviousChapterCommand { get; }
@@ -76,6 +81,8 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         public IRelayCommand ExitProjectorCommand { get; }
         public IRelayCommand ToggleThemeCommand { get; }
         public IRelayCommand ToggleWordsOfJesusCommand { get; }
+        public IAsyncRelayCommand<SearchSuggestion> OpenSuggestionCommand { get; }
+        public IAsyncRelayCommand SeeAllResultsCommand { get; }
 
         // ---- Current location ------------------------------------------------------------
 
@@ -91,7 +98,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
 
         public string LocationLabel => _currentBook == null ? "" : $"{_currentBook.DisplayName}  ›  {CurrentChapter}";
         public string ChapterTitle => _currentBook == null ? "" : $"{ChapterWord(_currentBook)} {CurrentChapter}";
-        public string TestamentLabel => _currentBook?.Book.Testament == "NT" ? "NEW TESTAMENT" : "OLD TESTAMENT";
+        public string TestamentLabel => _currentBook?.Book.Testament == Domain.Enums.Testament.New ? "NEW TESTAMENT" : "OLD TESTAMENT";
 
         private string _previousLabel = "";
         public string PreviousLabel { get => _previousLabel; private set => SetField(ref _previousLabel, value); }
@@ -187,6 +194,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             set
             {
                 if (!SetField(ref _isProjectorMode, value)) return;
+                if (value) CloseSuggestions();
                 OnPropertyChanged(nameof(IsChromeVisible));
                 OnPropertyChanged(nameof(IsSidebarVisible));
                 OnPropertyChanged(nameof(ReadingColumnWidth));
@@ -200,7 +208,27 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         public Thickness ReadingPadding => IsProjectorMode ? new Thickness(72, 48, 72, 96) : new Thickness(48, 40, 48, 64);
 
         private string _searchText = string.Empty;
-        public string SearchText { get => _searchText; set => SetField(ref _searchText, value); }
+        public string SearchText
+        {
+            get => _searchText;
+            set
+            {
+                if (SetField(ref _searchText, value ?? string.Empty))
+                    QueueSuggestions();
+            }
+        }
+
+        // ---- Search box dropdown -----------------------------------------------------------
+
+        private bool _isSuggestionsOpen;
+        public bool IsSuggestionsOpen { get => _isSuggestionsOpen; private set => SetField(ref _isSuggestionsOpen, value); }
+
+        private int _suggestionTotal;
+        public bool HasNoSuggestions => Suggestions.Count == 0;
+        public bool HasMoreResults => _suggestionTotal > 0;
+        // No count here: the dropdown also matches the word being typed as a prefix ("one" finds
+        // "ones"), so its total can differ from the search page's whole-word results.
+        public string SeeAllLabel => $"See all verses containing \u201c{SearchText.Trim()}\u201d  \u2192";
 
         // ---- Loading -----------------------------------------------------------------------
 
@@ -237,7 +265,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             {
                 var item = new BookNavItem(book);
                 _books.Add(item);
-                (book.Testament == "NT" ? NewTestamentBooks : OldTestamentBooks).Add(item);
+                (book.Testament == Domain.Enums.Testament.New ? NewTestamentBooks : OldTestamentBooks).Add(item);
             }
 
             Translations.Clear();
@@ -264,7 +292,11 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         }
 
         /// <summary>Shows a chapter, optionally scrolling to and marking a verse.</summary>
-        public async Task NavigateToAsync(int bookId, int chapter, int? verse = null)
+        public Task NavigateToAsync(int bookId, int chapter, int? verse = null) =>
+            NavigateToAsync(bookId, chapter, verse is int v ? new[] { new VerseRange(v, v) } : Array.Empty<VerseRange>());
+
+        /// <summary>Shows a chapter, scrolling to the first of the given verses and marking them all.</summary>
+        public async Task NavigateToAsync(int bookId, int chapter, IReadOnlyList<VerseRange> verses)
         {
             if (!_initialized || SelectedTranslation == null) return;
 
@@ -293,13 +325,13 @@ namespace TWCF_BibleApp.Presentation.ViewModels
                 CurrentChapter = chapter;
                 foreach (var c in book.Chapters) c.IsCurrent = c.Number == chapter;
 
-                var verses = await _bibleService.GetChapterVersesAsync(bookId, chapter, SelectedTranslation.Id);
+                var chapterVerses = await _bibleService.GetChapterVersesAsync(bookId, chapter, SelectedTranslation.Id);
                 Verses.Clear();
                 var targetIndex = -1;
-                foreach (var v in verses)
+                foreach (var v in chapterVerses)
                 {
-                    var item = new VerseItem(v) { IsTarget = v.VerseNumber == verse };
-                    if (item.IsTarget) targetIndex = Verses.Count;
+                    var item = new VerseItem(v) { IsTarget = verses.Any(r => r.Contains(v.VerseNumber)) };
+                    if (item.IsTarget && targetIndex < 0) targetIndex = Verses.Count;
                     Verses.Add(item);
                 }
 
@@ -369,7 +401,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         }
 
         // "Psalms 23" reads as "Psalm 23".
-        private static string ChapterWord(BookNavItem book) => book.Book.Name == "Psalms" ? "Psalm" : book.DisplayName;
+        private static string ChapterWord(BookNavItem book) => ReferenceParser.ReferenceBookName(book.Book.Name);
 
         // ---- Search / jump -----------------------------------------------------------------
 
@@ -378,15 +410,111 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             var text = SearchText?.Trim();
             if (string.IsNullOrEmpty(text)) return;
 
+            // "John 3", "Ps 23" and "1 Cor" jump straight there; a partial book name such as "son"
+            // or "is" is searched for instead (the dropdown still offers the book).
             var reference = ReferenceParser.Parse(text, _books.Select(b => b.Book));
-            if (reference != null)
+            if (reference is { IsExplicit: true })
             {
-                SearchText = string.Empty;
-                await NavigateToAsync(reference.Book.Id, reference.Chapter, reference.Verse);
+                await GoToReferenceAsync(reference);
                 return;
             }
 
-            await Shell.Current.GoToAsync($"{nameof(SearchPage)}?q={Uri.EscapeDataString(text)}");
+            await OpenSearchPageAsync(text);
+        }
+
+        private Task GoToReferenceAsync(BibleReference reference)
+        {
+            SearchText = string.Empty;
+            return NavigateToAsync(reference.Book.Id, reference.Chapter, reference.Verses);
+        }
+
+        private Task OpenSuggestionAsync(SearchSuggestion? suggestion)
+        {
+            if (suggestion?.Reference is { } reference)
+                return GoToReferenceAsync(reference);
+            if (suggestion?.Result is not { } result)
+                return Task.CompletedTask;
+
+            SearchText = string.Empty;
+            return NavigateToAsync(result.BookId, result.Chapter, result.Verse);
+        }
+
+        private async Task OpenSearchPageAsync(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+            SearchText = string.Empty;
+            await Shell.Current.GoToAsync(
+                $"{nameof(SearchPage)}?q={Uri.EscapeDataString(text)}&t={SelectedTranslation?.Id ?? 1}");
+        }
+
+        public void CloseSuggestions()
+        {
+            _suggestDebounce?.Cancel();
+            IsSuggestionsOpen = false;
+        }
+
+        /// <summary>Shows the dropdown again for text still in the box (e.g. when it regains focus).</summary>
+        public void ReopenSuggestions() => QueueSuggestions();
+
+        // Search as you type, once typing pauses.
+        private void QueueSuggestions()
+        {
+            _suggestDebounce?.Cancel();
+            var text = SearchText.Trim();
+            if (!_initialized || IsProjectorMode || text.Length < 2)
+            {
+                IsSuggestionsOpen = false;
+                return;
+            }
+
+            var cts = _suggestDebounce = new CancellationTokenSource();
+            _ = UpdateSuggestionsAsync(SearchText, cts.Token);
+        }
+
+        private async Task UpdateSuggestionsAsync(string text, CancellationToken token)
+        {
+            try
+            {
+                await Task.Delay(200, token);
+            }
+            catch (TaskCanceledException)
+            {
+                return;
+            }
+
+            var reference = ReferenceParser.Parse(text, _books.Select(b => b.Book));
+            // "Jn 3:16" is clearly a reference, so don't also look for verses containing "jn 3 16".
+            var isReferenceOnly = reference != null && text.Any(char.IsDigit);
+
+            var results = SearchResultsDto.Empty;
+            if (!isReferenceOnly)
+            {
+                await _loadLock.WaitAsync();
+                try
+                {
+                    if (token.IsCancellationRequested) return;
+                    results = await _bibleService.SearchVersesAsync(text, SelectedTranslation?.Id ?? 1, SearchScope.All, 0, SuggestionCount, matchPrefix: true);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Search failed: {ex}");
+                }
+                finally
+                {
+                    _loadLock.Release();
+                }
+            }
+
+            if (token.IsCancellationRequested) return;
+
+            Suggestions.Clear();
+            if (reference != null) Suggestions.Add(SearchSuggestion.GoTo(reference));
+            foreach (var r in results.Items) Suggestions.Add(SearchSuggestion.Match(r));
+            _suggestionTotal = results.TotalCount;
+            OnPropertyChanged(nameof(HasNoSuggestions));
+            OnPropertyChanged(nameof(HasMoreResults));
+            OnPropertyChanged(nameof(SeeAllLabel));
+            IsSuggestionsOpen = true;
         }
 
         // ---- Settings ----------------------------------------------------------------------

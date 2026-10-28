@@ -13,7 +13,7 @@ namespace TWCF_BibleApp
     public static class MauiProgram
     {
         // Bump whenever Resources/Raw/bible_data.db is regenerated (see Tools/PrepareBibleData.md).
-        private const int BibleDataVersion = 2;
+        private const int BibleDataVersion = 3;
         private const string BibleDataVersionKey = "BibleDataVersion";
 
         public static IServiceProvider Services { get; private set; }

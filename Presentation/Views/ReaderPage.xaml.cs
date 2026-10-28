@@ -18,6 +18,7 @@ namespace TWCF_BibleApp.Presentation.Views
             _vm.ScrollRequested += OnScrollRequested;
             _vm.ProjectorModeChanged += (_, on) => SetFullScreen(on);
             HandlerChanged += (_, _) => AttachKeyboardShortcuts();
+            SearchBox.SizeChanged += (_, _) => AlignSuggestionsPanel();
         }
 
         protected override async void OnAppearing()
@@ -68,6 +69,42 @@ namespace TWCF_BibleApp.Presentation.Views
             _ = SidebarScroll.ScrollToAsync(0, Math.Max(0, list.Y + item.Y - 24), false);
         }
 
+        // ---- Search dropdown ---------------------------------------------------------------
+
+        // The dropdown lives in the body row so it can overlay the reading column; line it up
+        // with the search box in the top bar (whose grid starts at the page's left edge).
+        private void AlignSuggestionsPanel()
+        {
+            SuggestionsPanel.Margin = new Thickness(SearchBox.X, 6, 0, 0);
+            SuggestionsPanel.WidthRequest = Math.Max(SearchBox.Width, 420);
+        }
+
+        private void SearchEntry_Focused(object? sender, FocusEventArgs e) => _vm.ReopenSuggestions();
+
+        // Close after a moment so a click on a suggestion still lands.
+        private void SearchEntry_Unfocused(object? sender, FocusEventArgs e) =>
+            Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(250), () =>
+            {
+                if (!SearchEntry.IsFocused) _vm.CloseSuggestions();
+            });
+
+        private void Suggestion_PointerEntered(object? sender, PointerEventArgs e)
+        {
+            if (sender is Border border) border.SetDynamicResource(BackgroundColorProperty, "ChipColor");
+        }
+
+        private void Suggestion_PointerExited(object? sender, PointerEventArgs e)
+        {
+            if (sender is Border border) border.BackgroundColor = Colors.Transparent;
+        }
+
+        // Esc closes the dropdown first, then leaves projector mode.
+        private void OnEscape()
+        {
+            if (_vm.IsSuggestionsOpen) _vm.CloseSuggestions();
+            else _vm.ExitProjectorCommand.Execute(null);
+        }
+
         private void ProjectorControls_PointerEntered(object? sender, PointerEventArgs e) => ProjectorControls.Opacity = 1;
         private void ProjectorControls_PointerExited(object? sender, PointerEventArgs e) => ProjectorControls.Opacity = 0.35;
 
@@ -107,7 +144,7 @@ namespace TWCF_BibleApp.Presentation.Views
             AddShortcut(element, Windows.System.VirtualKey.K, ctrl, FocusSearch);
             AddShortcut(element, Windows.System.VirtualKey.F5, none, () => _vm.ToggleProjectorCommand.Execute(null));
             AddShortcut(element, Windows.System.VirtualKey.F11, none, () => _vm.ToggleProjectorCommand.Execute(null));
-            AddShortcut(element, Windows.System.VirtualKey.Escape, none, () => _vm.ExitProjectorCommand.Execute(null));
+            AddShortcut(element, Windows.System.VirtualKey.Escape, none, OnEscape);
 
             // Chapter navigation, except while typing in a text box.
             AddShortcut(element, Windows.System.VirtualKey.Left, none, () => _vm.PreviousChapterCommand.Execute(null), skipWhenTyping: true);

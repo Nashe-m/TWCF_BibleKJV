@@ -3,6 +3,7 @@ Builds Resources/Raw/bible_data.db from eBible.org USFM downloads.
 
 Usage:
     python Tools/import_usfm.py <usfm_root> <books_chapters_source.db> <output.db>
+    python Tools/import_usfm.py --finalize <existing.db>
 
 <usfm_root> must contain one unzipped folder per translation, named by its eBible id
 (see TRANSLATIONS below), e.g. <usfm_root>/eng-kjv2006/*.usfm.
@@ -13,6 +14,9 @@ BookIds (1..66) stay stable for the user's highlights, notes and settings.
 
 Words of Jesus (USFM \\wj ... \\wj*) are kept in Verses.MarkedText as <wj>...</wj>.
 Verses.Text is always plain text (used for search and copy).
+
+--finalize re-applies the last step (testament fix-up and search index) to an existing
+database without re-importing the text.
 """
 import re
 import sqlite3
@@ -225,12 +229,36 @@ def main(usfm_root, source_db, out_db):
         CREATE INDEX IX_Verses_Translation_Book_Chapter ON Verses (TranslationId, BookId, ChapterNumber, VerseNumber);
         CREATE INDEX IX_Chapters_BookId ON Chapters (BookId, Number);
     """)
-    db.commit()
-    db.execute("VACUUM")
+    finalize(db)
     db.close()
 
 
+def finalize(db):
+    """Fix up book testaments and (re)build the full-text search index."""
+    # The source database had several NT books (1 Corinthians, 1 Peter, Revelation, ...)
+    # marked OT. Matthew is book 40, so derive it from the order instead of trusting it.
+    db.execute("UPDATE Books SET Testament = CASE WHEN OrderNumber >= 40 THEN 'NT' ELSE 'OT' END")
+
+    # External-content FTS5 index over Verses.Text; rowid = Verses.Id. Used by
+    # BibleRepository.SearchVersesAsync. remove_diacritics lets "e" match "é" etc.
+    db.executescript("""
+        DROP TABLE IF EXISTS VerseSearch;
+        CREATE VIRTUAL TABLE VerseSearch USING fts5(
+            Text, content='Verses', content_rowid='Id', tokenize='unicode61 remove_diacritics 2');
+        INSERT INTO VerseSearch(VerseSearch) VALUES ('rebuild');
+        INSERT INTO VerseSearch(VerseSearch) VALUES ('optimize');
+    """)
+    db.commit()
+    db.execute("VACUUM")
+    print("finalized:", db.execute("SELECT Testament, COUNT(*) FROM Books GROUP BY 1").fetchall())
+
+
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
+    if len(sys.argv) == 3 and sys.argv[1] == "--finalize":
+        conn = sqlite3.connect(sys.argv[2])
+        finalize(conn)
+        conn.close()
+    elif len(sys.argv) == 4:
+        main(*sys.argv[1:])
+    else:
         sys.exit(__doc__)
-    main(*sys.argv[1:])

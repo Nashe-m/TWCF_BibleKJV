@@ -19,5 +19,7 @@ namespace TWCF_BibleApp.Application.Services
         public Task<IEnumerable<ChapterDto>> GetChaptersForBookAsync(int bookId) => _repo.GetChaptersForBookAsync(bookId);
         public Task<IEnumerable<VerseDto>> GetChapterVersesAsync(int bookId, int chapterNumber, int translationId) => _repo.GetChapterVersesAsync(bookId, chapterNumber, translationId);
         public Task<IEnumerable<TranslationDto>> GetTranslationsAsync() => _repo.GetTranslationsAsync();
+        public Task<SearchResultsDto> SearchVersesAsync(string query, int translationId, SearchScope scope, int skip, int take, bool matchPrefix = false)
+            => _repo.SearchVersesAsync(query, translationId, scope, skip, take, matchPrefix);
     }
 }

@@ -1,38 +1,105 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<ContentPage 
+<ContentPage
     x:Class="TWCF_BibleApp.Presentation.Views.SearchPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    Title="Search Bible"
+    xmlns:vm="clr-namespace:TWCF_BibleApp.Presentation.ViewModels"
+    xmlns:dto="clr-namespace:TWCF_BibleApp.Application.DTOs"
+    xmlns:comp="clr-namespace:TWCF_BibleApp.Presentation.Components"
+    x:DataType="vm:SearchViewModel"
+    Title="Search"
     BackgroundColor="{DynamicResource PageBackgroundColor}">
 
-    <VerticalStackLayout Padding="20" Spacing="16">
+    <Grid RowDefinitions="Auto,Auto,*"
+          Padding="32,24,32,0"
+          RowSpacing="12"
+          MaximumWidthRequest="900">
 
-        <!--Search bar-->
-        <Entry 
-            Placeholder="Search..."
-            Text="{Binding SearchQuery}" 
-            ReturnType="Search" 
-            Completed="OnSearchCompleted" />
+        <!-- Search box -->
+        <Border Grid.Row="0"
+                HeightRequest="46"
+                Padding="14,0,6,0"
+                StrokeThickness="1"
+                Stroke="{DynamicResource BorderColor}"
+                StrokeShape="RoundRectangle 10"
+                BackgroundColor="{DynamicResource ChipColor}">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                <Label Text="&#xE721;"
+                       FontFamily="{StaticResource IconFont}"
+                       FontSize="15"
+                       TextColor="{DynamicResource MutedTextColor}"
+                       VerticalOptions="Center" />
+                <Entry Grid.Column="1"
+                       Text="{Binding SearchQuery}"
+                       Placeholder="Search the Bible (use &quot;quotes&quot; for an exact phrase)"
+                       PlaceholderColor="{DynamicResource MutedTextColor}"
+                       TextColor="{DynamicResource PageTextColor}"
+                       BackgroundColor="Transparent"
+                       FontSize="16"
+                       ReturnType="Search"
+                       ReturnCommand="{Binding PerformSearchCommand}"
+                       VerticalOptions="Center" />
+                <Button Grid.Column="2"
+                        Style="{StaticResource AccentButton}"
+                        Text="Search"
+                        VerticalOptions="Center"
+                        Command="{Binding PerformSearchCommand}" />
+            </Grid>
+        </Border>
 
-        <Button 
-            Text="Search"
-            Command="{Binding PerformSearchCommand}" />
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
+            <Label Text="{Binding Summary}"
+                   FontSize="14"
+                   TextColor="{DynamicResource MutedTextColor}"
+                   VerticalOptions="Center" />
+            <ActivityIndicator Grid.Column="1"
+                               IsRunning="{Binding IsBusy}"
+                               IsVisible="{Binding IsBusy}"
+                               HeightRequest="20"
+                               WidthRequest="20"
+                               Color="{DynamicResource AccentColor}" />
+        </Grid>
 
-        <!-- Search results -->
-        <CollectionView 
-            ItemsSource="{Binding SearchResults}" 
-            SelectionMode="Single"
-            SelectedItem="{Binding SelectedResult, Mode=TwoWay}">
+        <!-- Results -->
+        <CollectionView Grid.Row="2"
+                        ItemsSource="{Binding SearchResults}"
+                        SelectionMode="None"
+                        RemainingItemsThreshold="10"
+                        RemainingItemsThresholdReachedCommand="{Binding LoadMoreCommand}">
             <CollectionView.ItemTemplate>
-                <DataTemplate>
-                    <VerticalStackLayout Padding="8" Spacing="4">
-                        <Label Text="{Binding Reference}" FontAttributes="Bold" />
-                        <Label Text="{Binding Text}" LineHeight="1.4" />
-                    </VerticalStackLayout>
+                <DataTemplate x:DataType="dto:SearchResultDto">
+                    <Border StrokeThickness="0"
+                            Padding="14,12"
+                            Margin="0,0,0,4"
+                            StrokeShape="RoundRectangle 10"
+                            BackgroundColor="Transparent">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenResultCommand, Source={RelativeSource AncestorType={x:Type vm:SearchViewModel}}, x:DataType=vm:SearchViewModel}"
+                                                  CommandParameter="{Binding .}" />
+                            <PointerGestureRecognizer PointerEntered="Result_PointerEntered"
+                                                      PointerExited="Result_PointerExited" />
+                        </Border.GestureRecognizers>
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="{Binding Reference}"
+                                   FontSize="14"
+                                   FontAttributes="Bold"
+                                   TextColor="{DynamicResource AccentColor}" />
+                            <comp:HighlightedLabel MarkedText="{Binding HighlightedText}"
+                                                   FontFamily="{StaticResource ScriptureFont}"
+                                                   FontSize="18"
+                                                   LineHeight="1.4" />
+                        </VerticalStackLayout>
+                    </Border>
                 </DataTemplate>
             </CollectionView.ItemTemplate>
+            <CollectionView.Footer>
+                <Button Style="{StaticResource LinkButton}"
+                        Text="Load more results"
+                        IsVisible="{Binding HasMore, Source={RelativeSource AncestorType={x:Type vm:SearchViewModel}}, x:DataType=vm:SearchViewModel}"
+                        Command="{Binding LoadMoreCommand, Source={RelativeSource AncestorType={x:Type vm:SearchViewModel}}, x:DataType=vm:SearchViewModel}"
+                        HorizontalOptions="Center"
+                        Margin="0,8,0,32" />
+            </CollectionView.Footer>
         </CollectionView>
-
-    </VerticalStackLayout>
+    </Grid>
 </ContentPage>

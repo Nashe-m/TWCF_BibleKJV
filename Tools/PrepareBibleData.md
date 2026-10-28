@@ -28,6 +28,9 @@ Steps
    The script prints verse counts per version and any chapters whose verse count differs
    from KJV (expected for a few textual variants, e.g. Matthew 17:21 in WEB/ASV).
 
+   The last step (also runnable on its own with `python Tools/import_usfm.py --finalize <db>`)
+   sets each book's testament from its order and builds the `VerseSearch` full-text index.
+
 3. Copy the new file over `Resources/Raw/bible_data.db`.
 
 4. Bump `BibleDataVersion` in `MauiProgram.cs`. Existing installs only replace their copy
@@ -37,5 +40,8 @@ Schema notes
 - `Verses.Text` is plain text, used for display, search and copy.
 - `Verses.MarkedText` is the same text with words of Jesus wrapped in `<wj>...</wj>`
   (null when the verse has none), used for red-letter display.
+- `Books.Testament` is `'OT'` / `'NT'` (mapped to the `Testament` enum in `BookConfiguration`).
+- `VerseSearch` is an FTS5 index over `Verses.Text` (rowid = `Verses.Id`), used by
+  `BibleRepository.SearchVersesAsync`. It adds about 10 MB to the database.
 - Adding a version: add a row to `TRANSLATIONS` in `import_usfm.py` with the next Id.
 - Keep `bible_data.db` read-only at runtime; do not run migrations against it.

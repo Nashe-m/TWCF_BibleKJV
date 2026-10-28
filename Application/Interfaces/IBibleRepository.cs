@@ -13,7 +13,11 @@ namespace TWCF_BibleApp.Application.Interfaces
         /// Load full chapter (all verses) in a single query. Always read-only.
         /// </summary>
         Task<IEnumerable<VerseDto>> GetChapterVersesAsync(int bookId, int chapterNumber, int translationId);
-        Task<List<Verse>> SearchVersesAsync(string query, int translationId);
+        /// <summary>
+        /// Full-text search of verse text in Bible order. With matchPrefix the last word also
+        /// matches longer words ("shep" finds "shepherd"), for search-as-you-type.
+        /// </summary>
+        Task<SearchResultsDto> SearchVersesAsync(string query, int translationId, SearchScope scope, int skip, int take, bool matchPrefix = false);
         Task<IEnumerable<TranslationDto>> GetTranslationsAsync();
         Task<TranslationDto?> GetTranslationAsync(int translationId);
     }
