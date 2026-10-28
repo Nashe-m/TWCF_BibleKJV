@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="TWCF_BibleApp.Presentation.Views.SettingsPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:TWCF_BibleApp.Presentation.ViewModels"
+    xmlns:dto="clr-namespace:TWCF_BibleApp.Application.DTOs"
+    x:DataType="vm:SettingsViewModel"
+    Title="Settings">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="32,28,32,48" Spacing="24" MaximumWidthRequest="900">
+            <Label Text="Settings" Style="{StaticResource PageTitleLabel}" />
+
+            <!-- Display settings move here in Phase 6 -->
+            <Border Padding="20"
+                    StrokeThickness="1"
+                    Stroke="{DynamicResource BorderColor}"
+                    StrokeShape="RoundRectangle 12"
+                    BackgroundColor="{DynamicResource SurfaceColor}">
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="DISPLAY" Style="{StaticResource SectionHeaderLabel}" />
+                    <Label Text="Text size, light or dark theme and red letters are in the reader's toolbar for now (Aa on smaller screens)."
+                           TextColor="{DynamicResource MutedTextColor}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Padding="20"
+                    StrokeThickness="1"
+                    Stroke="{DynamicResource BorderColor}"
+                    StrokeShape="RoundRectangle 12"
+                    BackgroundColor="{DynamicResource SurfaceColor}">
+                <VerticalStackLayout Spacing="14">
+                    <Label Text="ABOUT" Style="{StaticResource SectionHeaderLabel}" />
+                    <VerticalStackLayout Spacing="2">
+                        <Label Text="TWCF Bible" FontSize="18" FontAttributes="Bold" />
+                        <Label Text="{Binding AppVersion}" TextColor="{DynamicResource MutedTextColor}" />
+                    </VerticalStackLayout>
+
+                    <Label Text="BIBLE VERSIONS" Style="{StaticResource SectionHeaderLabel}" Margin="0,6,0,0" />
+                    <VerticalStackLayout Spacing="14" BindableLayout.ItemsSource="{Binding Translations}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="dto:TranslationDto">
+                                <VerticalStackLayout Spacing="2">
+                                    <Label Text="{Binding DisplayName}" FontAttributes="Bold" />
+                                    <Label Text="{Binding Copyright}" TextColor="{DynamicResource MutedTextColor}" />
+                                </VerticalStackLayout>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+
+                    <Label Text="Bible texts from eBible.org."
+                           FontSize="13"
+                           TextColor="{DynamicResource MutedTextColor}" />
+                </VerticalStackLayout>
+            </Border>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

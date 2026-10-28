@@ -1,4 +1,5 @@
 using Microsoft.Maui.Controls;
+using TWCF_BibleApp.Application.DTOs;
 using TWCF_BibleApp.Presentation.ViewModels;
 using System;
 using System.Threading.Tasks;
@@ -16,9 +17,47 @@ namespace TWCF_BibleApp.Presentation.Views
             _vm = vm;
 
             _vm.ScrollRequested += OnScrollRequested;
-            _vm.ProjectorModeChanged += (_, on) => SetFullScreen(on);
+            _vm.ProjectorModeChanged += (_, on) =>
+            {
+                SetFullScreen(on);
+                (Shell.Current as AppShell)?.SetNavigationVisible(!on);
+            };
             HandlerChanged += (_, _) => AttachKeyboardShortcuts();
             SearchBox.SizeChanged += (_, _) => AlignSuggestionsPanel();
+            SizeChanged += (_, _) =>
+            {
+                _vm.UpdateLayout(Width);
+                ApplyLayout();
+            };
+        }
+
+        // ---- Responsive layout ---------------------------------------------------------------
+
+        private bool? _appliedCompact;
+        private bool? _appliedNarrow;
+
+        // Grid positions can't be bound, so the parts that move between layouts are placed here.
+        private void ApplyLayout()
+        {
+            if (_appliedCompact != _vm.IsCompact)
+            {
+                _appliedCompact = _vm.IsCompact;
+                // Wide: docked beside the text. Compact: a drawer over the text (above the scrim).
+                Grid.SetColumn(Sidebar, _vm.IsCompact ? 1 : 0);
+                Sidebar.HorizontalOptions = _vm.IsCompact ? LayoutOptions.Start : LayoutOptions.Fill;
+            }
+
+            if (_appliedNarrow != _vm.IsNarrow)
+            {
+                var narrow = _vm.IsNarrow;
+                _appliedNarrow = narrow;
+                // Phone: the search box gets its own full-width row; the version shows as "KJV".
+                Grid.SetRow(SearchBox, narrow ? 1 : 0);
+                Grid.SetColumn(SearchBox, narrow ? 0 : 3);
+                Grid.SetColumnSpan(SearchBox, narrow ? 5 : 1);
+                SearchBox.Margin = narrow ? new Thickness(0, 10, 0, 0) : new Thickness(0);
+                VersionPicker.ItemDisplayBinding = new Binding(narrow ? nameof(TranslationDto.Code) : nameof(TranslationDto.DisplayName));
+            }
         }
 
         protected override async void OnAppearing()
@@ -76,7 +115,7 @@ namespace TWCF_BibleApp.Presentation.Views
         private void AlignSuggestionsPanel()
         {
             SuggestionsPanel.Margin = new Thickness(SearchBox.X, 6, 0, 0);
-            SuggestionsPanel.WidthRequest = Math.Max(SearchBox.Width, 420);
+            SuggestionsPanel.WidthRequest = Math.Min(Math.Max(SearchBox.Width, 420), Math.Max(0, Width - SearchBox.X - 16));
         }
 
         private void SearchEntry_Focused(object? sender, FocusEventArgs e) => _vm.ReopenSuggestions();
@@ -98,11 +137,11 @@ namespace TWCF_BibleApp.Presentation.Views
             if (sender is Border border) border.BackgroundColor = Colors.Transparent;
         }
 
-        // Esc closes the dropdown first, then leaves projector mode.
+        // Esc closes the dropdown, then the drawer or display menu, then leaves projector mode.
         private void OnEscape()
         {
             if (_vm.IsSuggestionsOpen) _vm.CloseSuggestions();
-            else _vm.ExitProjectorCommand.Execute(null);
+            else if (!_vm.CloseOverlays()) _vm.ExitProjectorCommand.Execute(null);
         }
 
         private void ProjectorControls_PointerEntered(object? sender, PointerEventArgs e) => ProjectorControls.Opacity = 1;

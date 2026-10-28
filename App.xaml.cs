@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui.Controls;
 using TWCF_BibleApp.Presentation.Views;
 
@@ -26,7 +26,7 @@ namespace TWCF_BibleApp
 
         protected override Window CreateWindow(IActivationState? activationState)
         {
-            return new Window(new AppShell());
+            return new Window(new AppShell()) { Title = "TWCF Bible" };
         }
     }
 

@@ -4,17 +4,114 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:views="clr-namespace:TWCF_BibleApp.Presentation.Views"
-    xmlns:local="clr-namespace:TWCF_BibleApp"
-    Title="TWCF_BibleApp">
+    x:Name="Root"
+    Shell.NavBarIsVisible="False"
+    FlyoutWidth="92"
+    FlyoutBackgroundColor="{DynamicResource SurfaceColor}">
 
-    <!--<ShellContent
-        Title="Home"
-        ContentTemplate="{DataTemplate local:MainPage}"
-        Route="MainPage" />-->
-    
-    <ShellContent
-        Title="Reader"
-        Route="ReaderPage"
-        ContentTemplate="{DataTemplate views:ReaderPage}" />
+    <!--
+        One set of destinations, shown two ways (see AppShell.xaml.cs):
+        - desktop / tablet: a locked flyout styled as a slim navigation rail
+        - phone: the flyout is disabled and the same items show as bottom tabs
+        Projector mode hides both.
+    -->
 
+    <!-- Navigation rail item: icon over a short label -->
+    <Shell.ItemTemplate>
+        <DataTemplate x:DataType="BaseShellItem">
+            <Border x:Name="Item"
+                    WidthRequest="76"
+                    Margin="0,2"
+                    Padding="0,10"
+                    StrokeThickness="0"
+                    StrokeShape="RoundRectangle 10"
+                    BackgroundColor="Transparent">
+                <VisualStateManager.VisualStateGroups>
+                    <VisualStateGroupList>
+                        <VisualStateGroup x:Name="CommonStates">
+                            <VisualState x:Name="Normal" />
+                            <VisualState x:Name="Selected">
+                                <VisualState.Setters>
+                                    <Setter Property="BackgroundColor" Value="{DynamicResource AccentSoftColor}" />
+                                </VisualState.Setters>
+                            </VisualState>
+                        </VisualStateGroup>
+                    </VisualStateGroupList>
+                </VisualStateManager.VisualStateGroups>
+                <VerticalStackLayout Spacing="4" HorizontalOptions="Center">
+                    <!-- The glyph comes from the item's FontImageSource (also used by the phone tab bar).
+                         Icon is typed ImageSource, so this one binding is resolved at runtime. -->
+                    <Label Text="{Binding Icon.Glyph, x:DataType={x:Null}}"
+                           FontFamily="{StaticResource IconFont}"
+                           FontSize="20"
+                           HorizontalOptions="Center"
+                           TextColor="{DynamicResource MutedTextColor}">
+                        <Label.Triggers>
+                            <DataTrigger TargetType="Label" Binding="{Binding IsChecked}" Value="True">
+                                <Setter Property="TextColor" Value="{DynamicResource AccentColor}" />
+                            </DataTrigger>
+                        </Label.Triggers>
+                    </Label>
+                    <Label Text="{Binding Title}"
+                           FontSize="11"
+                           HorizontalTextAlignment="Center"
+                           TextColor="{DynamicResource MutedTextColor}">
+                        <Label.Triggers>
+                            <DataTrigger TargetType="Label" Binding="{Binding IsChecked}" Value="True">
+                                <Setter Property="TextColor" Value="{DynamicResource AccentColor}" />
+                                <Setter Property="FontAttributes" Value="Bold" />
+                            </DataTrigger>
+                        </Label.Triggers>
+                    </Label>
+                </VerticalStackLayout>
+            </Border>
+        </DataTemplate>
+    </Shell.ItemTemplate>
+
+    <!-- Spacing above the first rail item -->
+    <Shell.FlyoutHeader>
+        <BoxView HeightRequest="12" Color="Transparent" />
+    </Shell.FlyoutHeader>
+
+    <FlyoutItem FlyoutDisplayOptions="AsMultipleItems">
+        <ShellContent Title="Read"
+                      Route="ReaderPage"
+                      ContentTemplate="{DataTemplate views:ReaderPage}">
+            <ShellContent.Icon>
+                <FontImageSource Glyph="&#xE82D;" FontFamily="{StaticResource IconFont}" Color="{DynamicResource PageTextColor}" Size="20" />
+            </ShellContent.Icon>
+        </ShellContent>
+
+        <ShellContent Title="Search"
+                      Route="search"
+                      ContentTemplate="{DataTemplate views:SearchPage}">
+            <ShellContent.Icon>
+                <FontImageSource Glyph="&#xE721;" FontFamily="{StaticResource IconFont}" Color="{DynamicResource PageTextColor}" Size="20" />
+            </ShellContent.Icon>
+        </ShellContent>
+
+        <ShellContent Title="Notes"
+                      Route="notes"
+                      ContentTemplate="{DataTemplate views:NotesPage}">
+            <ShellContent.Icon>
+                <FontImageSource Glyph="&#xE70B;" FontFamily="{StaticResource IconFont}" Color="{DynamicResource PageTextColor}" Size="20" />
+            </ShellContent.Icon>
+        </ShellContent>
+
+        <ShellContent Title="Highlights"
+                      Route="highlights"
+                      ContentTemplate="{DataTemplate views:HighlightsPage}">
+            <ShellContent.Icon>
+                <FontImageSource Glyph="&#xE7E6;" FontFamily="{StaticResource IconFont}" Color="{DynamicResource PageTextColor}" Size="20" />
+            </ShellContent.Icon>
+        </ShellContent>
+
+        <ShellContent Title="Settings"
+                      Route="settings"
+                      ContentTemplate="{DataTemplate views:SettingsPage}">
+            <ShellContent.Icon>
+                <FontImageSource Glyph="&#xE713;" FontFamily="{StaticResource IconFont}" Color="{DynamicResource PageTextColor}" Size="20" />
+            </ShellContent.Icon>
+        </ShellContent>
+    </FlyoutItem>
 </Shell>

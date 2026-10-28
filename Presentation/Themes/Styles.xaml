@@ -7,6 +7,67 @@
         <Setter Property="TextColor" Value="{DynamicResource PageTextColor}" />
     </Style>
 
+    <!-- Base styles for controls without an explicit style -->
+    <Style TargetType="Page" ApplyToDerivedTypes="True">
+        <Setter Property="BackgroundColor" Value="{DynamicResource PageBackgroundColor}" />
+    </Style>
+
+    <Style TargetType="Entry">
+        <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
+        <Setter Property="TextColor" Value="{DynamicResource PageTextColor}" />
+        <Setter Property="PlaceholderColor" Value="{DynamicResource MutedTextColor}" />
+        <Setter Property="BackgroundColor" Value="Transparent" />
+    </Style>
+
+    <Style TargetType="Picker">
+        <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
+        <Setter Property="TextColor" Value="{DynamicResource PageTextColor}" />
+        <Setter Property="TitleColor" Value="{DynamicResource MutedTextColor}" />
+    </Style>
+
+    <Style TargetType="Shell" ApplyToDerivedTypes="True">
+        <Setter Property="Shell.BackgroundColor" Value="{DynamicResource SurfaceColor}" />
+        <Setter Property="Shell.ForegroundColor" Value="{DynamicResource PageTextColor}" />
+        <Setter Property="Shell.TitleColor" Value="{DynamicResource PageTextColor}" />
+        <Setter Property="Shell.TabBarBackgroundColor" Value="{DynamicResource SurfaceColor}" />
+        <Setter Property="Shell.TabBarForegroundColor" Value="{DynamicResource AccentColor}" />
+        <Setter Property="Shell.TabBarTitleColor" Value="{DynamicResource AccentColor}" />
+        <Setter Property="Shell.TabBarUnselectedColor" Value="{DynamicResource MutedTextColor}" />
+        <Setter Property="Shell.NavBarHasShadow" Value="False" />
+    </Style>
+
+    <!-- Page heading, e.g. "Notes" -->
+    <Style x:Key="PageTitleLabel" TargetType="Label">
+        <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
+        <Setter Property="FontSize" Value="28" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{DynamicResource PageTextColor}" />
+    </Style>
+
+    <!-- Empty state: large icon, title, one line of help -->
+    <Style x:Key="EmptyStateIcon" TargetType="Label">
+        <Setter Property="FontFamily" Value="{StaticResource IconFont}" />
+        <Setter Property="FontSize" Value="40" />
+        <Setter Property="HorizontalOptions" Value="Center" />
+        <Setter Property="TextColor" Value="{DynamicResource MutedTextColor}" />
+    </Style>
+
+    <Style x:Key="EmptyStateTitle" TargetType="Label">
+        <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
+        <Setter Property="FontSize" Value="18" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="HorizontalTextAlignment" Value="Center" />
+        <Setter Property="TextColor" Value="{DynamicResource PageTextColor}" />
+    </Style>
+
+    <Style x:Key="EmptyStateText" TargetType="Label">
+        <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="HorizontalTextAlignment" Value="Center" />
+        <Setter Property="LineHeight" Value="1.3" />
+        <Setter Property="TextColor" Value="{DynamicResource MutedTextColor}" />
+    </Style>
+
     <!-- Small upper-case section heading, e.g. OLD TESTAMENT -->
     <Style x:Key="SectionHeaderLabel" TargetType="Label">
         <Setter Property="FontFamily" Value="{StaticResource UiFont}" />

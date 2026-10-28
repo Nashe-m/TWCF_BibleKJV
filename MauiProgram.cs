@@ -64,6 +64,12 @@ namespace TWCF_BibleApp
 
             builder.Services.AddTransient<SearchViewModel>();
             builder.Services.AddTransient<SearchPage>();
+
+            builder.Services.AddTransient<NotesPage>();
+            builder.Services.AddTransient<HighlightsPage>();
+
+            builder.Services.AddTransient<SettingsViewModel>();
+            builder.Services.AddTransient<SettingsPage>();
 #if DEBUG
             builder.Logging.AddDebug();
 #endif

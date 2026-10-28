@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="TWCF_BibleApp.Presentation.Views.HighlightsPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Title="Highlights">
+
+    <!-- Filled in with the list in Phase 4; until then only the empty state shows. -->
+    <Grid RowDefinitions="Auto,*" Padding="32,28,32,0" MaximumWidthRequest="900">
+        <Label Text="Highlights" Style="{StaticResource PageTitleLabel}" />
+
+        <VerticalStackLayout Grid.Row="1"
+                             Spacing="10"
+                             MaximumWidthRequest="420"
+                             VerticalOptions="Center"
+                             Margin="0,0,0,80">
+            <Label Text="&#xE7E6;" Style="{StaticResource EmptyStateIcon}" />
+            <Label Text="No highlights yet" Style="{StaticResource EmptyStateTitle}" />
+            <Label Text="Select a verse in the reader and pick a colour to highlight it. Everything you highlight will be gathered here." Style="{StaticResource EmptyStateText}" />
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>

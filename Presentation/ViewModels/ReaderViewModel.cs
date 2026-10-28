@@ -10,7 +10,6 @@ using TWCF_BibleApp.Application.DTOs;
 using TWCF_BibleApp.Application.Services;
 using TWCF_BibleApp.Domain;
 using TWCF_BibleApp.Presentation.Themes;
-using TWCF_BibleApp.Presentation.Views;
 
 namespace TWCF_BibleApp.Presentation.ViewModels
 {
@@ -22,6 +21,10 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         private const double MaxFontSize = 144.0;
         private const double DefaultFontSize = 28.0;
         private const int SuggestionCount = 8;
+
+        // Page widths (device-independent units) below which the reader rearranges itself.
+        private const double CompactWidth = 1100; // book list becomes a drawer; display controls fold into "Aa"
+        private const double NarrowWidth = 720;   // phone: search moves to its own row
 
         private readonly BibleService _bibleService;
         private readonly UserService _userService;
@@ -54,7 +57,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             PreviousChapterCommand = new AsyncRelayCommand(GoToPreviousChapterAsync);
             NextChapterCommand = new AsyncRelayCommand(GoToNextChapterAsync);
             SelectBookCommand = new AsyncRelayCommand<BookNavItem>(SelectBookAsync);
-            SelectChapterCommand = new AsyncRelayCommand<ChapterNavItem>(c => c == null ? Task.CompletedTask : NavigateToAsync(CurrentBookId, c.Number));
+            SelectChapterCommand = new AsyncRelayCommand<ChapterNavItem>(SelectChapterAsync);
             SubmitSearchCommand = new AsyncRelayCommand(SubmitSearchAsync);
             IncreaseFontCommand = new RelayCommand(() => SetFontSize(ReadingFontSize < 40 ? ReadingFontSize + 2 : ReadingFontSize * 1.1));
             DecreaseFontCommand = new RelayCommand(() => SetFontSize(ReadingFontSize <= 40 ? ReadingFontSize - 2 : ReadingFontSize / 1.1));
@@ -66,6 +69,8 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             ToggleWordsOfJesusCommand = new RelayCommand(() => ShowWordsOfJesus = !ShowWordsOfJesus);
             OpenSuggestionCommand = new AsyncRelayCommand<SearchSuggestion>(OpenSuggestionAsync);
             SeeAllResultsCommand = new AsyncRelayCommand(() => OpenSearchPageAsync(SearchText.Trim()));
+            ToggleDisplayMenuCommand = new RelayCommand(() => IsDisplayMenuOpen = !IsDisplayMenuOpen);
+            CloseOverlaysCommand = new RelayCommand(() => CloseOverlays());
         }
 
         public IAsyncRelayCommand PreviousChapterCommand { get; }
@@ -83,6 +88,8 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         public IRelayCommand ToggleWordsOfJesusCommand { get; }
         public IAsyncRelayCommand<SearchSuggestion> OpenSuggestionCommand { get; }
         public IAsyncRelayCommand SeeAllResultsCommand { get; }
+        public IRelayCommand ToggleDisplayMenuCommand { get; }
+        public IRelayCommand CloseOverlaysCommand { get; }
 
         // ---- Current location ------------------------------------------------------------
 
@@ -182,8 +189,9 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             get => _isSidebarOpen;
             set
             {
-                if (SetField(ref _isSidebarOpen, value))
-                    OnPropertyChanged(nameof(IsSidebarVisible));
+                if (!SetField(ref _isSidebarOpen, value)) return;
+                OnPropertyChanged(nameof(IsSidebarVisible));
+                OnPropertyChanged(nameof(IsDrawerOpen));
             }
         }
 
@@ -194,9 +202,14 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             set
             {
                 if (!SetField(ref _isProjectorMode, value)) return;
-                if (value) CloseSuggestions();
+                if (value)
+                {
+                    CloseSuggestions();
+                    IsDisplayMenuOpen = false;
+                }
                 OnPropertyChanged(nameof(IsChromeVisible));
                 OnPropertyChanged(nameof(IsSidebarVisible));
+                OnPropertyChanged(nameof(IsDrawerOpen));
                 OnPropertyChanged(nameof(ReadingColumnWidth));
                 OnPropertyChanged(nameof(ReadingPadding));
                 ProjectorModeChanged?.Invoke(this, value);
@@ -205,7 +218,61 @@ namespace TWCF_BibleApp.Presentation.ViewModels
 
         public bool IsChromeVisible => !IsProjectorMode;
         public bool IsSidebarVisible => IsSidebarOpen && !IsProjectorMode;
-        public Thickness ReadingPadding => IsProjectorMode ? new Thickness(72, 48, 72, 96) : new Thickness(48, 40, 48, 64);
+        public Thickness ReadingPadding =>
+            IsProjectorMode ? new Thickness(72, 48, 72, 96)
+            : IsNarrow ? new Thickness(20, 24, 20, 48)
+            : new Thickness(48, 40, 48, 64);
+
+        // ---- Layout (ReaderPage reports its width) -------------------------------------------
+
+        private bool _layoutKnown;
+
+        private bool _isCompact;
+        public bool IsCompact { get => _isCompact; private set => SetField(ref _isCompact, value); }
+
+        private bool _isNarrow;
+        public bool IsNarrow { get => _isNarrow; private set => SetField(ref _isNarrow, value); }
+
+        // On a compact screen the book list slides over the text instead of sitting beside it.
+        public bool IsDrawerOpen => IsCompact && IsSidebarVisible;
+        public bool IsInlineDisplayControlsVisible => !IsCompact;
+        // Chapter arrows and Present; on a phone the arrows give way and Present moves into "Aa".
+        public bool IsFullToolbar => !IsNarrow;
+        public double VersionPickerWidth => IsNarrow ? 96 : IsCompact ? 170 : 240;
+
+        private bool _isDisplayMenuOpen;
+        public bool IsDisplayMenuOpen { get => _isDisplayMenuOpen; set => SetField(ref _isDisplayMenuOpen, value); }
+
+        public void UpdateLayout(double width)
+        {
+            if (width <= 0) return;
+
+            IsNarrow = width < NarrowWidth;
+            var compact = width < CompactWidth;
+            if (compact != IsCompact || !_layoutKnown)
+            {
+                _layoutKnown = true;
+                IsCompact = compact;
+                // Docked on a wide screen; a drawer starts closed so the text gets the room.
+                IsSidebarOpen = !compact;
+                if (!compact) IsDisplayMenuOpen = false;
+            }
+
+            OnPropertyChanged(nameof(IsDrawerOpen));
+            OnPropertyChanged(nameof(IsInlineDisplayControlsVisible));
+            OnPropertyChanged(nameof(IsFullToolbar));
+            OnPropertyChanged(nameof(VersionPickerWidth));
+            OnPropertyChanged(nameof(ReadingPadding));
+        }
+
+        /// <summary>Closes the drawer and the display menu; returns false if neither was open.</summary>
+        public bool CloseOverlays()
+        {
+            var wasOpen = IsDrawerOpen || IsDisplayMenuOpen;
+            if (IsDrawerOpen) IsSidebarOpen = false;
+            IsDisplayMenuOpen = false;
+            return wasOpen;
+        }
 
         private string _searchText = string.Empty;
         public string SearchText
@@ -349,6 +416,13 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             QueueSaveSettings();
         }
 
+        private async Task SelectChapterAsync(ChapterNavItem? chapter)
+        {
+            if (chapter == null) return;
+            await NavigateToAsync(CurrentBookId, chapter.Number);
+            if (IsCompact) IsSidebarOpen = false;
+        }
+
         private Task SelectBookAsync(BookNavItem? item)
         {
             if (item == null) return Task.CompletedTask;
@@ -443,8 +517,8 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         {
             if (string.IsNullOrEmpty(text)) return;
             SearchText = string.Empty;
-            await Shell.Current.GoToAsync(
-                $"{nameof(SearchPage)}?q={Uri.EscapeDataString(text)}&t={SelectedTranslation?.Id ?? 1}");
+            // The Search tab (route "search" in AppShell.xaml) keeps its results when you come back.
+            await Shell.Current.GoToAsync($"//search?q={Uri.EscapeDataString(text)}&t={SelectedTranslation?.Id ?? 1}");
         }
 
         public void CloseSuggestions()

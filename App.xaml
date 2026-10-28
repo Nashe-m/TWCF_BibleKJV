@@ -1,14 +1,10 @@
-﻿<?xml version = "1.0" encoding = "UTF-8" ?>
+<?xml version = "1.0" encoding = "UTF-8" ?>
 <Application xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"             x:Class="TWCF_BibleApp.App">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <!-- App-level styles (default) -->
-                <ResourceDictionary Source="Resources/Styles/Colors.xaml" />
-                <ResourceDictionary Source="Resources/Styles/Styles.xaml" />
-
-                <!-- Presentation-specific themes (optional overrides) -->
+                <!-- Theme tokens (light/dark, see ThemeManager) and control styles -->
                 <ResourceDictionary Source="Presentation/Themes/Colors.xaml" />
                 <ResourceDictionary Source="Presentation/Themes/Styles.xaml" />
             </ResourceDictionary.MergedDictionaries>
