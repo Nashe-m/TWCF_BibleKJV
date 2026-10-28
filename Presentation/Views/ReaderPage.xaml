@@ -552,19 +552,31 @@
                 </Grid>
             </Border>
 
-            <!-- ============ STATUS ("Copied John 3:16") ============ -->
+            <!-- ============ STATUS ("Copied John 3:16", "Highlight removed · Undo") ============ -->
             <Border Grid.Column="1"
                     ZIndex="5"
                     IsVisible="{Binding HasStatus}"
-                    InputTransparent="True"
                     HorizontalOptions="Center"
                     VerticalOptions="Start"
                     Margin="0,16,0,0"
-                    Padding="16,8"
+                    Padding="16,6"
                     StrokeThickness="0"
                     StrokeShape="RoundRectangle 20"
                     BackgroundColor="{DynamicResource PageTextColor}">
-                <Label Text="{Binding StatusMessage}" FontSize="14" TextColor="{DynamicResource PageBackgroundColor}" />
+                <HorizontalStackLayout Spacing="12">
+                    <Label Text="{Binding StatusMessage}" FontSize="14" VerticalOptions="Center" TextColor="{DynamicResource PageBackgroundColor}" />
+                    <Button IsVisible="{Binding HasStatusAction}"
+                            Text="{Binding StatusActionLabel}"
+                            Command="{Binding StatusActionCommand}"
+                            FontSize="14"
+                            FontAttributes="Bold"
+                            Padding="10,0"
+                            HeightRequest="32"
+                            MinimumHeightRequest="32"
+                            BorderWidth="0"
+                            BackgroundColor="Transparent"
+                            TextColor="{DynamicResource AccentSoftColor}" />
+                </HorizontalStackLayout>
             </Border>
 
             <!-- Projector mode controls: faint until hovered so they don't distract -->
@@ -620,6 +632,11 @@
                                     Padding="12,8"
                                     StrokeShape="RoundRectangle 8"
                                     BackgroundColor="Transparent">
+                                <Border.Triggers>
+                                    <DataTrigger TargetType="Border" Binding="{Binding IsHighlighted}" Value="True">
+                                        <Setter Property="BackgroundColor" Value="{DynamicResource ChipColor}" />
+                                    </DataTrigger>
+                                </Border.Triggers>
                                 <Border.GestureRecognizers>
                                     <TapGestureRecognizer Command="{Binding OpenSuggestionCommand, Source={RelativeSource AncestorType={x:Type vm:ReaderViewModel}}, x:DataType=vm:ReaderViewModel}"
                                                           CommandParameter="{Binding .}" />

@@ -61,6 +61,20 @@ public sealed class UserDataTests : IDisposable
     }
 
     [Fact]
+    public async Task Undo_puts_split_highlights_back_as_they_were()
+    {
+        await _service.SetHighlightAsync(John, 3, new[] { 16, 17, 18 }, "Y");
+        await _service.SetHighlightAsync(John, 3, new[] { 20 }, "G");
+        var before = (await _service.GetHighlightsAsync(John, 3)).ToList();
+
+        await _service.SetHighlightAsync(John, 3, new[] { 17, 20 }, null);
+        var restored = await _service.RestoreChapterHighlightsAsync(John, 3, before);
+
+        Assert.Equal("16-18:Y 20-20:G", Show(restored));
+        Assert.Equal(before.Select(h => h.CreatedUtc).OrderBy(d => d), restored.Select(h => h.CreatedUtc).OrderBy(d => d));
+    }
+
+    [Fact]
     public async Task Highlights_stay_in_their_chapter()
     {
         await _service.SetHighlightAsync(John, 3, new[] { 16 }, "Y");

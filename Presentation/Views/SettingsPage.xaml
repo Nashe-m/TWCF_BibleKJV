@@ -293,7 +293,7 @@
                         </Border>
                     </Grid>
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
-                        <Label Text="Search or go to a reference" FontSize="14" VerticalOptions="Center" />
+                        <Label Text="Search or go to a reference (↑ ↓ to pick a suggestion)" FontSize="14" VerticalOptions="Center" />
                         <Border Grid.Column="1" Padding="8,3" StrokeThickness="1" Stroke="{DynamicResource BorderColor}"
                                 StrokeShape="RoundRectangle 6" BackgroundColor="{DynamicResource PageBackgroundColor}">
                             <Label Text="Ctrl + K" FontSize="13" FontAttributes="Bold" />
@@ -353,6 +353,13 @@
                         <Border Grid.Column="1" Padding="8,3" StrokeThickness="1" Stroke="{DynamicResource BorderColor}"
                                 StrokeShape="RoundRectangle 6" BackgroundColor="{DynamicResource PageBackgroundColor}">
                             <Label Text="Ctrl + C" FontSize="13" FontAttributes="Bold" />
+                        </Border>
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                        <Label Text="Undo removing a highlight" FontSize="14" VerticalOptions="Center" />
+                        <Border Grid.Column="1" Padding="8,3" StrokeThickness="1" Stroke="{DynamicResource BorderColor}"
+                                StrokeShape="RoundRectangle 6" BackgroundColor="{DynamicResource PageBackgroundColor}">
+                            <Label Text="Ctrl + Z" FontSize="13" FontAttributes="Bold" />
                         </Border>
                     </Grid>
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">

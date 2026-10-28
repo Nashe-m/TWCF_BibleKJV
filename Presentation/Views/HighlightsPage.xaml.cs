@@ -13,6 +13,13 @@ namespace TWCF_BibleApp.Presentation.Views
             BindingContext = _vm = vm;
         }
 
+        // Undo only applies while you're looking at the list.
+        protected override void OnDisappearing()
+        {
+            base.OnDisappearing();
+            _vm.ClearUndo();
+        }
+
         // Reload every time: notes and highlights are added in the reader.
         protected override async void OnAppearing()
         {

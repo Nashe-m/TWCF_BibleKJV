@@ -83,6 +83,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             CloseNoteEditorCommand = new RelayCommand(CloseNoteEditor);
             CloseOverlaysCommand = new RelayCommand(() => CloseOverlays());
             RetryCommand = new AsyncRelayCommand(RetryAsync);
+            StatusActionCommand = new AsyncRelayCommand(RunStatusActionAsync);
         }
 
         public IAsyncRelayCommand PreviousChapterCommand { get; }
@@ -114,6 +115,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         public IRelayCommand CloseNoteEditorCommand { get; }
         public IRelayCommand CloseOverlaysCommand { get; }
         public IAsyncRelayCommand RetryCommand { get; }
+        public IAsyncRelayCommand StatusActionCommand { get; }
 
         // ---- Current location ------------------------------------------------------------
 
@@ -676,6 +678,15 @@ namespace TWCF_BibleApp.Presentation.ViewModels
 
         private async Task SubmitSearchAsync()
         {
+            // Enter on a row chosen with the arrow keys opens that row.
+            if (IsSuggestionsOpen && _highlightedSuggestion >= 0 && _highlightedSuggestion < Suggestions.Count)
+            {
+                var chosen = Suggestions[_highlightedSuggestion];
+                CloseSuggestions();
+                await OpenSuggestionAsync(chosen);
+                return;
+            }
+
             var text = SearchText?.Trim();
             if (string.IsNullOrEmpty(text)) return;
 
@@ -720,6 +731,30 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         {
             _suggestDebounce?.Cancel();
             IsSuggestionsOpen = false;
+            HighlightSuggestion(-1);
+        }
+
+        private int _highlightedSuggestion = -1;
+
+        /// <summary>Up / Down in the search box. Moving past either end returns to the box (no row).</summary>
+        public bool MoveSuggestionHighlight(int delta)
+        {
+            if (!IsSuggestionsOpen || Suggestions.Count == 0) return false;
+
+            var i = _highlightedSuggestion + delta;
+            if (i < -1) i = Suggestions.Count - 1;
+            else if (i >= Suggestions.Count) i = -1;
+            HighlightSuggestion(i);
+            return true;
+        }
+
+        public void HighlightSuggestion(SearchSuggestion? suggestion) =>
+            HighlightSuggestion(suggestion == null ? -1 : Suggestions.IndexOf(suggestion));
+
+        private void HighlightSuggestion(int index)
+        {
+            _highlightedSuggestion = index;
+            for (var k = 0; k < Suggestions.Count; k++) Suggestions[k].IsHighlighted = k == index;
         }
 
         /// <summary>Shows the dropdown again for text still in the box (e.g. when it regains focus).</summary>
@@ -778,6 +813,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             if (token.IsCancellationRequested) return;
 
             Suggestions.Clear();
+            _highlightedSuggestion = -1;
             if (reference != null) Suggestions.Add(SearchSuggestion.GoTo(reference));
             foreach (var r in results.Items) Suggestions.Add(SearchSuggestion.Match(r));
             _suggestionTotal = results.TotalCount;
@@ -847,21 +883,49 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             var verses = SelectedVerses.Select(v => v.Number).ToList();
             if (verses.Count == 0) return;
 
+            var (bookId, chapter) = (CurrentBookId, CurrentChapter);
+            IReadOnlyList<Highlight>? before = null;
             await _loadLock.WaitAsync();
             try
             {
-                AttachHighlights(await _userService.SetHighlightAsync(CurrentBookId, CurrentChapter, verses, colorHex));
+                // Removing can't be redone by eye, so keep what was there for Undo.
+                if (colorHex == null) before = (await _userService.GetHighlightsAsync(bookId, chapter)).ToList();
+                AttachHighlights(await _userService.SetHighlightAsync(bookId, chapter, verses, colorHex));
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Saving highlight failed: {ex}");
                 ShowStatus("Couldn't save the highlight");
+                before = null;
             }
             finally
             {
                 _loadLock.Release();
             }
             ClearSelection();
+
+            if (before != null)
+                ShowStatus("Highlight removed", "Undo", () => UndoHighlightRemovalAsync(bookId, chapter, before));
+        }
+
+        private async Task UndoHighlightRemovalAsync(int bookId, int chapter, IReadOnlyList<Highlight> before)
+        {
+            await _loadLock.WaitAsync();
+            try
+            {
+                var restored = await _userService.RestoreChapterHighlightsAsync(bookId, chapter, before);
+                // Still on that chapter: show them again straight away.
+                if (bookId == CurrentBookId && chapter == CurrentChapter) AttachHighlights(restored);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Undoing highlight removal failed: {ex}");
+                ShowStatus("Couldn't restore the highlight");
+            }
+            finally
+            {
+                _loadLock.Release();
+            }
         }
 
         // Text as it is pasted elsewhere: verse numbers only when there is more than one verse.
@@ -1078,15 +1142,47 @@ namespace TWCF_BibleApp.Presentation.ViewModels
 
         public bool HasStatus => StatusMessage.Length > 0;
 
-        private async void ShowStatus(string message)
+        // An optional button in the toast, e.g. "Undo".
+        private Func<Task>? _statusAction;
+        private string _statusActionLabel = "";
+        public string StatusActionLabel
+        {
+            get => _statusActionLabel;
+            private set
+            {
+                if (SetField(ref _statusActionLabel, value)) OnPropertyChanged(nameof(HasStatusAction));
+            }
+        }
+
+        public bool HasStatusAction => StatusActionLabel.Length > 0;
+
+        private async Task RunStatusActionAsync()
+        {
+            var action = _statusAction;
+            HideStatus();
+            if (action != null) await action();
+        }
+
+        private void HideStatus()
+        {
+            _statusTimer?.Cancel();
+            _statusAction = null;
+            StatusActionLabel = "";
+            StatusMessage = "";
+        }
+
+        // A toast with an action stays long enough to reach for it.
+        private async void ShowStatus(string message, string? actionLabel = null, Func<Task>? action = null)
         {
             _statusTimer?.Cancel();
             var cts = _statusTimer = new CancellationTokenSource();
+            _statusAction = action;
+            StatusActionLabel = action == null ? "" : actionLabel ?? "";
             StatusMessage = message;
             try
             {
-                await Task.Delay(2500, cts.Token);
-                StatusMessage = "";
+                await Task.Delay(action == null ? 2500 : 8000, cts.Token);
+                HideStatus();
             }
             catch (TaskCanceledException)
             {

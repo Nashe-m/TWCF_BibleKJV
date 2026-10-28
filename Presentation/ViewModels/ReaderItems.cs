@@ -116,7 +116,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
     /// A row in the search box dropdown: either "Go to John 3:16" (Reference set) or a verse
     /// whose text matches what was typed (Result set).
     /// </summary>
-    public sealed class SearchSuggestion
+    public sealed partial class SearchSuggestion : ObservableObject
     {
         private SearchSuggestion(BibleReference? reference, SearchResultDto? result)
         {
@@ -134,5 +134,9 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         public bool IsMatch => Result != null;
         public string Title => Reference != null ? $"Go to {Reference.Display}" : Result!.Reference;
         public string HighlightedText => Result?.HighlightedText ?? "";
+
+        // The row the arrow keys (or the mouse) are on; Enter opens it.
+        [ObservableProperty]
+        private bool _isHighlighted;
     }
 }

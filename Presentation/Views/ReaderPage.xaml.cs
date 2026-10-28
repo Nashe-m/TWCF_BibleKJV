@@ -25,6 +25,7 @@ namespace TWCF_BibleApp.Presentation.Views
             };
             HandlerChanged += (_, _) => AttachKeyboardShortcuts();
             SearchBox.SizeChanged += (_, _) => AlignSuggestionsPanel();
+            SearchEntry.HandlerChanged += (_, _) => AttachSuggestionKeys();
 
             // Start typing straight away when the note editor opens.
             _vm.PropertyChanged += (_, e) =>
@@ -177,14 +178,14 @@ namespace TWCF_BibleApp.Presentation.Views
                 if (!SearchEntry.IsFocused) _vm.CloseSuggestions();
             });
 
-        private void Suggestion_PointerEntered(object? sender, PointerEventArgs e)
-        {
-            if (sender is Border border) border.SetDynamicResource(BackgroundColorProperty, "ChipColor");
-        }
+        // The mouse and the arrow keys share one highlighted row.
+        private void Suggestion_PointerEntered(object? sender, PointerEventArgs e) =>
+            _vm.HighlightSuggestion((sender as BindableObject)?.BindingContext as SearchSuggestion);
 
         private void Suggestion_PointerExited(object? sender, PointerEventArgs e)
         {
-            if (sender is Border border) border.BackgroundColor = Colors.Transparent;
+            if ((sender as BindableObject)?.BindingContext is SearchSuggestion { IsHighlighted: true })
+                _vm.HighlightSuggestion(null);
         }
 
         // Esc closes one thing at a time: dropdown, note editor, selection, drawer or menu, then projector mode.
@@ -255,6 +256,10 @@ namespace TWCF_BibleApp.Presentation.Views
             AddShortcut(element, Windows.System.VirtualKey.F11, none, () => _vm.ToggleProjectorCommand.Execute(null));
             AddShortcut(element, Windows.System.VirtualKey.Escape, none, OnEscape);
             AddShortcut(element, Windows.System.VirtualKey.F1, none, ShowShortcuts);
+            AddShortcut(element, Windows.System.VirtualKey.Z, ctrl, () =>
+            {
+                if (_vm.HasStatusAction) _vm.StatusActionCommand.Execute(null);
+            }, skipWhenTyping: true);
             AddShortcut(element, Windows.System.VirtualKey.C, ctrl, () => _vm.CopySelectionCommand.Execute(null), skipWhenTyping: true);
 
             // Chapter navigation, except while typing in a text box.
@@ -288,6 +293,18 @@ namespace TWCF_BibleApp.Presentation.Views
             element.KeyboardAccelerators.Add(accelerator);
         }
 
+        // Up / Down move through the dropdown while typing; Enter (the Entry's ReturnCommand) opens the row.
+        private void AttachSuggestionKeys()
+        {
+            if (SearchEntry.Handler?.PlatformView is not Microsoft.UI.Xaml.Controls.TextBox box) return;
+            box.PreviewKeyDown += (_, e) =>
+            {
+                var delta = e.Key == Windows.System.VirtualKey.Down ? 1 : e.Key == Windows.System.VirtualKey.Up ? -1 : 0;
+                if (delta != 0 && _vm.MoveSuggestionHighlight(delta))
+                    e.Handled = true;  // keep the caret where it is
+            };
+        }
+
         private void ShowShortcuts()
         {
             if (_vm.IsProjectorMode) return;
@@ -302,6 +319,7 @@ namespace TWCF_BibleApp.Presentation.Views
         }
 #else
         private void AttachKeyboardShortcuts() { }
+        private void AttachSuggestionKeys() { }
 #endif
     }
 }

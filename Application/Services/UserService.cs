@@ -80,6 +80,20 @@ namespace TWCF_BibleApp.Application.Services
             return (await _repo.GetHighlightsAsync(bookId, chapterNumber)).ToList();
         }
 
+        /// <summary>
+        /// Replaces a chapter's highlights with an earlier snapshot (from GetHighlightsAsync), for undo.
+        /// Returns the chapter's highlights afterwards.
+        /// </summary>
+        public Task<IReadOnlyList<Highlight>> RestoreChapterHighlightsAsync(int bookId, int chapterNumber, IReadOnlyCollection<Highlight> snapshot) =>
+            Locked<IReadOnlyList<Highlight>>(async () =>
+            {
+                foreach (var h in await _repo.GetHighlightsAsync(bookId, chapterNumber))
+                    await _repo.DeleteHighlightAsync(h.Id);
+                foreach (var h in snapshot)
+                    await _repo.AddHighlightAsync(Copy(h, new VerseRange(h.StartVerseNumber, h.EndVerseNumber), h.ColorHex));
+                return (await _repo.GetHighlightsAsync(bookId, chapterNumber)).ToList();
+            });
+
         private static Highlight Copy(Highlight h, VerseRange verses, string colorHex) => new()
         {
             BookId = h.BookId, ChapterNumber = h.ChapterNumber,

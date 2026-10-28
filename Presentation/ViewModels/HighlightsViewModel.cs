@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
 using TWCF_BibleApp.Application.Services;
@@ -21,6 +22,65 @@ namespace TWCF_BibleApp.Presentation.ViewModels
                 : OpenInReaderAsync((h.Highlight.BookId, h.Highlight.ChapterNumber, h.Highlight.StartVerseNumber, h.Highlight.EndVerseNumber)));
             RemoveCommand = new AsyncRelayCommand<HighlightListItem>(RemoveAsync);
             SelectFilterCommand = new RelayCommand<ColorFilter>(SelectFilter);
+            UndoRemoveCommand = new AsyncRelayCommand(UndoRemoveAsync);
+        }
+
+        public IAsyncRelayCommand UndoRemoveCommand { get; }
+
+        // The last removed highlight, while its Undo bar is showing.
+        private HighlightListItem? _removed;
+        private CancellationTokenSource? _undoTimer;
+
+        private string _undoMessage = "";
+        public string UndoMessage
+        {
+            get => _undoMessage;
+            private set
+            {
+                if (SetProperty(ref _undoMessage, value)) OnPropertyChanged(nameof(CanUndo));
+            }
+        }
+
+        public bool CanUndo => UndoMessage.Length > 0;
+
+        private async void OfferUndo(HighlightListItem item)
+        {
+            _undoTimer?.Cancel();
+            var cts = _undoTimer = new CancellationTokenSource();
+            _removed = item;
+            UndoMessage = $"Removed the highlight on {item.Reference}";
+            try
+            {
+                await Task.Delay(8000, cts.Token);
+                ClearUndo();
+            }
+            catch (TaskCanceledException)
+            {
+            }
+        }
+
+        public void ClearUndo()
+        {
+            _undoTimer?.Cancel();
+            _removed = null;
+            UndoMessage = "";
+        }
+
+        private async Task UndoRemoveAsync()
+        {
+            if (_removed is not { } item) return;
+            ClearUndo();
+            try
+            {
+                // Same verses, colour and date; it gets a new Id, so reload the list.
+                await UserService.AddHighlightAsync(item.Highlight);
+                await LoadAsync();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Undoing highlight removal failed: {ex}");
+                await Shell.Current.DisplayAlertAsync("Couldn't undo", "The highlight could not be put back. Please try again.", "OK");
+            }
         }
 
         public IAsyncRelayCommand<HighlightListItem> OpenHighlightCommand { get; }
@@ -89,7 +149,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             OnPropertyChanged(nameof(Summary));
         }
 
-        // No confirmation: a highlight is quick to put back, unlike a written note.
+        // No confirmation: Undo is offered instead.
         private async Task RemoveAsync(HighlightListItem? item)
         {
             if (item == null) return;
@@ -98,6 +158,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
                 await UserService.DeleteHighlightAsync(item.Highlight.Id);
                 _all.Remove(item);
                 Rebuild();
+                OfferUndo(item);
             }
             catch (Exception ex)
             {
