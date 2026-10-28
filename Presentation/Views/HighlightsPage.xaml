@@ -3,20 +3,113 @@
     x:Class="TWCF_BibleApp.Presentation.Views.HighlightsPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:TWCF_BibleApp.Presentation.ViewModels"
+    x:DataType="vm:HighlightsViewModel"
     Title="Highlights">
 
-    <!-- Filled in with the list in Phase 4; until then only the empty state shows. -->
-    <Grid RowDefinitions="Auto,*" Padding="32,28,32,0" MaximumWidthRequest="900">
-        <Label Text="Highlights" Style="{StaticResource PageTitleLabel}" />
+    <Grid RowDefinitions="Auto,Auto,*" RowSpacing="16" Padding="32,28,32,0" MaximumWidthRequest="900">
 
-        <VerticalStackLayout Grid.Row="1"
+        <!-- Heading -->
+        <VerticalStackLayout>
+            <Label Text="Highlights" Style="{StaticResource PageTitleLabel}" />
+            <Label Text="{Binding Summary}" FontSize="14" TextColor="{DynamicResource MutedTextColor}" />
+        </VerticalStackLayout>
+
+        <!-- Colour filter -->
+        <FlexLayout Grid.Row="1"
+                    IsVisible="{Binding HasAny}"
+                    Wrap="Wrap"
+                    BindableLayout.ItemsSource="{Binding Filters}">
+            <BindableLayout.ItemTemplate>
+                <DataTemplate x:DataType="vm:ColorFilter">
+                    <Border Margin="0,0,8,8"
+                            Padding="12,6"
+                            StrokeThickness="1"
+                            Stroke="{DynamicResource BorderColor}"
+                            StrokeShape="RoundRectangle 16"
+                            BackgroundColor="{DynamicResource SurfaceColor}">
+                        <Border.Triggers>
+                            <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
+                                <Setter Property="BackgroundColor" Value="{DynamicResource AccentSoftColor}" />
+                                <Setter Property="Stroke" Value="{DynamicResource AccentColor}" />
+                            </DataTrigger>
+                        </Border.Triggers>
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding SelectFilterCommand, Source={RelativeSource AncestorType={x:Type vm:HighlightsViewModel}}, x:DataType=vm:HighlightsViewModel}"
+                                                  CommandParameter="{Binding .}" />
+                        </Border.GestureRecognizers>
+                        <HorizontalStackLayout Spacing="6">
+                            <Ellipse IsVisible="{Binding HasColor}" Fill="{Binding Color}" WidthRequest="12" HeightRequest="12" VerticalOptions="Center" />
+                            <Label Text="{Binding Name}" FontSize="14" VerticalOptions="Center" />
+                        </HorizontalStackLayout>
+                    </Border>
+                </DataTemplate>
+            </BindableLayout.ItemTemplate>
+        </FlexLayout>
+
+        <!-- Highlights in Bible order, grouped by book -->
+        <CollectionView Grid.Row="2"
+                        IsVisible="{Binding HasItems}"
+                        ItemsSource="{Binding Groups}"
+                        IsGrouped="True"
+                        SelectionMode="None">
+            <CollectionView.GroupHeaderTemplate>
+                <DataTemplate x:DataType="vm:HighlightGroup">
+                    <Label Text="{Binding Title}" Style="{StaticResource SectionHeaderLabel}" Margin="4,16,0,8" />
+                </DataTemplate>
+            </CollectionView.GroupHeaderTemplate>
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="vm:HighlightListItem">
+                    <Border Margin="0,0,0,10"
+                            StrokeThickness="1"
+                            Stroke="{DynamicResource BorderColor}"
+                            StrokeShape="RoundRectangle 12"
+                            BackgroundColor="{DynamicResource SurfaceColor}">
+                        <Grid ColumnDefinitions="6,*">
+                            <!-- The highlight's colour -->
+                            <BoxView Color="{Binding Color}" />
+                            <VerticalStackLayout Grid.Column="1" Padding="16,12" Spacing="6">
+                                <Label Text="{Binding Reference}" FontSize="15" FontAttributes="Bold" TextColor="{DynamicResource AccentColor}" />
+                                <Label Text="{Binding VerseText}"
+                                       FontFamily="{StaticResource ScriptureFont}"
+                                       FontSize="17"
+                                       LineHeight="1.35" />
+                                <HorizontalStackLayout Spacing="4" Margin="-8,0,0,-4">
+                                    <Button Style="{StaticResource LinkButton}" FontSize="14" Text="Open in reader"
+                                            Command="{Binding OpenHighlightCommand, Source={RelativeSource AncestorType={x:Type vm:HighlightsViewModel}}, x:DataType=vm:HighlightsViewModel}"
+                                            CommandParameter="{Binding .}" />
+                                    <Button Style="{StaticResource LinkButton}" FontSize="14" Text="Remove"
+                                            Command="{Binding RemoveCommand, Source={RelativeSource AncestorType={x:Type vm:HighlightsViewModel}}, x:DataType=vm:HighlightsViewModel}"
+                                            CommandParameter="{Binding .}" />
+                                </HorizontalStackLayout>
+                            </VerticalStackLayout>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+            <CollectionView.Footer>
+                <BoxView HeightRequest="24" Color="Transparent" />
+            </CollectionView.Footer>
+        </CollectionView>
+
+        <!-- No highlights at all -->
+        <VerticalStackLayout Grid.Row="2"
+                             IsVisible="{Binding IsEmpty}"
                              Spacing="10"
                              MaximumWidthRequest="420"
                              VerticalOptions="Center"
                              Margin="0,0,0,80">
             <Label Text="&#xE7E6;" Style="{StaticResource EmptyStateIcon}" />
             <Label Text="No highlights yet" Style="{StaticResource EmptyStateTitle}" />
-            <Label Text="Select a verse in the reader and pick a colour to highlight it. Everything you highlight will be gathered here." Style="{StaticResource EmptyStateText}" />
+            <Label Text="Select a verse in the reader and pick a colour to highlight it. Everything you highlight will be gathered here."
+                   Style="{StaticResource EmptyStateText}" />
         </VerticalStackLayout>
+
+        <!-- Filter found nothing -->
+        <Label Grid.Row="2"
+               IsVisible="{Binding HasNoMatches}"
+               Text="No highlights in this colour."
+               Margin="4,8,0,0"
+               TextColor="{DynamicResource MutedTextColor}" />
     </Grid>
 </ContentPage>

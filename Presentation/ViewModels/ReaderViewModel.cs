@@ -36,7 +36,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         private CancellationTokenSource? _statusTimer;
         private List<Note> _chapterNotes = new();
         private bool _initialized;
-        private (int BookId, int Chapter, int? Verse)? _pendingNavigation;
+        private (int BookId, int Chapter, IReadOnlyList<VerseRange> Verses)? _pendingNavigation;
 
         private readonly List<BookNavItem> _books = new();
         private BookNavItem? _currentBook;
@@ -341,16 +341,45 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             if (_pendingNavigation is { } nav)
             {
                 _pendingNavigation = null;
-                await NavigateToAsync(nav.BookId, nav.Chapter, nav.Verse);
+                await NavigateToAsync(nav.BookId, nav.Chapter, nav.Verses);
+            }
+            else
+            {
+                // Notes and highlights may have been edited on their own pages meanwhile.
+                await RefreshAnnotationsAsync();
             }
         }
 
-        // Shell passes ?bookId=&chapter=&verse= when a search result is opened.
+        // Shell passes ?bookId=&chapter=&verse=[&to=] when a search result, note or highlight is opened.
         public void ApplyQueryAttributes(IDictionary<string, object> query)
         {
             // Applied by OnAppearingAsync, which Shell calls right after this.
-            if (TryGetInt(query, "bookId", out var bookId) && TryGetInt(query, "chapter", out var chapter))
-                _pendingNavigation = (bookId, chapter, TryGetInt(query, "verse", out var verse) ? verse : null);
+            if (!TryGetInt(query, "bookId", out var bookId) || !TryGetInt(query, "chapter", out var chapter)) return;
+
+            IReadOnlyList<VerseRange> verses = Array.Empty<VerseRange>();
+            if (TryGetInt(query, "verse", out var verse))
+                verses = new[] { new VerseRange(verse, TryGetInt(query, "to", out var to) && to > verse ? to : verse) };
+            _pendingNavigation = (bookId, chapter, verses);
+        }
+
+        private async Task RefreshAnnotationsAsync()
+        {
+            if (!_initialized || _currentBook == null) return;
+
+            await _loadLock.WaitAsync();
+            try
+            {
+                AttachHighlights(await _userService.GetHighlightsAsync(CurrentBookId, CurrentChapter));
+                AttachNotes(await _userService.GetNotesAsync(CurrentBookId, CurrentChapter));
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Refreshing highlights/notes failed: {ex}");
+            }
+            finally
+            {
+                _loadLock.Release();
+            }
         }
 
         private async Task InitializeAsync()
@@ -778,7 +807,8 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             var alpha = IsDarkMode ? 0.30f : 0.38f;
             foreach (var v in Verses)
             {
-                v.HighlightColor = show && v.HighlightHex != null ? Color.FromArgb(v.HighlightHex).WithAlpha(alpha) : Colors.Transparent;
+                v.HasHighlight = show && v.HighlightHex != null;
+                v.HighlightColor = v.HasHighlight ? Color.FromArgb(v.HighlightHex!).WithAlpha(alpha) : Colors.Transparent;
                 v.ShowsNote = show && v.Note != null;
             }
         }

@@ -133,6 +133,22 @@ namespace TWCF_BibleApp.Persistence.Repositories
             public string HighlightedText { get; set; } = string.Empty;
         }
 
+        public async Task<IReadOnlyList<VerseDto>> GetVersesForChaptersAsync(IEnumerable<(int BookId, int Chapter)> chapters, int translationId)
+        {
+            // One query per book: EF can't translate a Contains over (book, chapter) pairs.
+            var result = new List<VerseDto>();
+            foreach (var book in chapters.GroupBy(c => c.BookId))
+            {
+                var numbers = book.Select(c => c.Chapter).Distinct().ToList();
+                result.AddRange(await _db.Verses
+                    .AsNoTracking()
+                    .Where(v => v.TranslationId == translationId && v.BookId == book.Key && numbers.Contains(v.ChapterNumber))
+                    .Select(v => new VerseDto { Id = v.Id, BookId = v.BookId, ChapterNumber = v.ChapterNumber, VerseNumber = v.VerseNumber, Text = v.Text, MarkedText = v.MarkedText })
+                    .ToListAsync());
+            }
+            return result;
+        }
+
         public async Task<IEnumerable<TranslationDto>> GetTranslationsAsync()
         {
             return await _db.Translations

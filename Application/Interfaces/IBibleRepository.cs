@@ -19,6 +19,8 @@ namespace TWCF_BibleApp.Application.Interfaces
         /// </summary>
         Task<SearchResultsDto> SearchVersesAsync(string query, int translationId, SearchScope scope, int skip, int take, bool matchPrefix = false);
         Task<IEnumerable<TranslationDto>> GetTranslationsAsync();
+        /// <summary>All verses of the given chapters in one translation.</summary>
+        Task<IReadOnlyList<VerseDto>> GetVersesForChaptersAsync(IEnumerable<(int BookId, int Chapter)> chapters, int translationId);
         Task<TranslationDto?> GetTranslationAsync(int translationId);
     }
 }

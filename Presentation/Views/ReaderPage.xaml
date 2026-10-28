@@ -320,9 +320,14 @@
                                         <TapGestureRecognizer Tapped="Verse_Tapped" />
                                     </Border.GestureRecognizers>
                                     <Border.Triggers>
-                                        <DataTrigger TargetType="Border" Binding="{Binding IsTarget}" Value="True">
+                                        <!-- The jump marker never hides the user's own highlight -->
+                                        <MultiTrigger TargetType="Border">
+                                            <MultiTrigger.Conditions>
+                                                <BindingCondition Binding="{Binding IsTarget}" Value="True" />
+                                                <BindingCondition Binding="{Binding HasHighlight}" Value="False" />
+                                            </MultiTrigger.Conditions>
                                             <Setter Property="BackgroundColor" Value="{DynamicResource AccentSoftColor}" />
-                                        </DataTrigger>
+                                        </MultiTrigger>
                                         <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
                                             <Setter Property="Stroke" Value="{DynamicResource AccentColor}" />
                                         </DataTrigger>

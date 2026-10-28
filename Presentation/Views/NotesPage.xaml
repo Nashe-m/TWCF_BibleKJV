@@ -3,20 +3,155 @@
     x:Class="TWCF_BibleApp.Presentation.Views.NotesPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:TWCF_BibleApp.Presentation.ViewModels"
+    x:DataType="vm:NotesViewModel"
     Title="Notes">
 
-    <!-- Filled in with the list in Phase 4; until then only the empty state shows. -->
-    <Grid RowDefinitions="Auto,*" Padding="32,28,32,0" MaximumWidthRequest="900">
-        <Label Text="Notes" Style="{StaticResource PageTitleLabel}" />
+    <Grid RowDefinitions="Auto,Auto,*" RowSpacing="16" Padding="32,28,32,0" MaximumWidthRequest="900">
 
-        <VerticalStackLayout Grid.Row="1"
+        <!-- Heading -->
+        <VerticalStackLayout>
+            <Label Text="Notes" Style="{StaticResource PageTitleLabel}" />
+            <Label Text="{Binding Summary}" FontSize="14" TextColor="{DynamicResource MutedTextColor}" />
+        </VerticalStackLayout>
+
+        <!-- Search and sort -->
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="12" IsVisible="{Binding HasAny}">
+            <Border HeightRequest="42"
+                    Padding="14,0"
+                    StrokeThickness="1"
+                    Stroke="{DynamicResource BorderColor}"
+                    StrokeShape="RoundRectangle 10"
+                    BackgroundColor="{DynamicResource ChipColor}">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                    <Label Text="&#xE721;" FontFamily="{StaticResource IconFont}" FontSize="15"
+                           TextColor="{DynamicResource MutedTextColor}" VerticalOptions="Center" />
+                    <Entry Grid.Column="1" Text="{Binding SearchText}" Placeholder="Search your notes" FontSize="15" VerticalOptions="Center" />
+                </Grid>
+            </Border>
+
+            <!-- Bible order / newest first -->
+            <Border Grid.Column="1"
+                    Padding="3"
+                    StrokeThickness="1"
+                    Stroke="{DynamicResource BorderColor}"
+                    StrokeShape="RoundRectangle 10"
+                    BackgroundColor="{DynamicResource SurfaceColor}">
+                <HorizontalStackLayout Spacing="2">
+                    <Button Text="Bible order" Style="{StaticResource SegmentButton}" Command="{Binding SortByBibleCommand}">
+                        <Button.Triggers>
+                            <DataTrigger TargetType="Button" Binding="{Binding SortByDate}" Value="False">
+                                <Setter Property="BackgroundColor" Value="{DynamicResource AccentSoftColor}" />
+                                <Setter Property="TextColor" Value="{DynamicResource AccentColor}" />
+                            </DataTrigger>
+                        </Button.Triggers>
+                    </Button>
+                    <Button Text="Newest" Style="{StaticResource SegmentButton}" Command="{Binding SortByDateCommand}">
+                        <Button.Triggers>
+                            <DataTrigger TargetType="Button" Binding="{Binding SortByDate}" Value="True">
+                                <Setter Property="BackgroundColor" Value="{DynamicResource AccentSoftColor}" />
+                                <Setter Property="TextColor" Value="{DynamicResource AccentColor}" />
+                            </DataTrigger>
+                        </Button.Triggers>
+                    </Button>
+                </HorizontalStackLayout>
+            </Border>
+        </Grid>
+
+        <!-- Notes, grouped by book (or by month when sorted by date) -->
+        <CollectionView Grid.Row="2"
+                        IsVisible="{Binding HasItems}"
+                        ItemsSource="{Binding Groups}"
+                        IsGrouped="True"
+                        SelectionMode="None">
+            <CollectionView.GroupHeaderTemplate>
+                <DataTemplate x:DataType="vm:NoteGroup">
+                    <Label Text="{Binding Title}" Style="{StaticResource SectionHeaderLabel}" Margin="4,16,0,8" />
+                </DataTemplate>
+            </CollectionView.GroupHeaderTemplate>
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="vm:NoteListItem">
+                    <Border Margin="0,0,0,10"
+                            Padding="18,14"
+                            StrokeThickness="1"
+                            Stroke="{DynamicResource BorderColor}"
+                            StrokeShape="RoundRectangle 12"
+                            BackgroundColor="{DynamicResource SurfaceColor}">
+                        <VerticalStackLayout Spacing="8">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label Text="{Binding Reference}" FontSize="15" FontAttributes="Bold" TextColor="{DynamicResource AccentColor}" />
+                                <Label Grid.Column="1" Text="{Binding DateLabel}" FontSize="12" TextColor="{DynamicResource MutedTextColor}" VerticalOptions="Center" />
+                            </Grid>
+
+                            <Label Text="{Binding VerseText}"
+                                   FontFamily="{StaticResource ScriptureFont}"
+                                   FontSize="15"
+                                   MaxLines="3"
+                                   LineBreakMode="TailTruncation"
+                                   TextColor="{DynamicResource MutedTextColor}" />
+
+                            <!-- Reading -->
+                            <Label Text="{Binding Text}" FontSize="16" IsVisible="{Binding IsNotEditing}" />
+                            <HorizontalStackLayout Spacing="4" Margin="-8,0,0,-4" IsVisible="{Binding IsNotEditing}">
+                                <Button Style="{StaticResource LinkButton}" FontSize="14" Text="Open in reader"
+                                        Command="{Binding OpenNoteCommand, Source={RelativeSource AncestorType={x:Type vm:NotesViewModel}}, x:DataType=vm:NotesViewModel}"
+                                        CommandParameter="{Binding .}" />
+                                <Button Style="{StaticResource LinkButton}" FontSize="14" Text="Edit"
+                                        Command="{Binding EditCommand, Source={RelativeSource AncestorType={x:Type vm:NotesViewModel}}, x:DataType=vm:NotesViewModel}"
+                                        CommandParameter="{Binding .}" />
+                                <Button Style="{StaticResource LinkButton}" FontSize="14" Text="Delete"
+                                        TextColor="{DynamicResource WordsOfJesusColor}"
+                                        Command="{Binding DeleteCommand, Source={RelativeSource AncestorType={x:Type vm:NotesViewModel}}, x:DataType=vm:NotesViewModel}"
+                                        CommandParameter="{Binding .}" />
+                            </HorizontalStackLayout>
+
+                            <!-- Editing -->
+                            <Border IsVisible="{Binding IsEditing}"
+                                    Padding="10,6"
+                                    StrokeThickness="1"
+                                    Stroke="{DynamicResource BorderColor}"
+                                    StrokeShape="RoundRectangle 10"
+                                    BackgroundColor="{DynamicResource ChipColor}">
+                                <Editor Text="{Binding EditText}" FontSize="16" AutoSize="TextChanges" MinimumHeightRequest="100"
+                                        IsVisible="{Binding IsEditing}"
+                                        PropertyChanged="NoteEditor_PropertyChanged"
+                                        TextColor="{DynamicResource PageTextColor}" BackgroundColor="Transparent" />
+                            </Border>
+                            <HorizontalStackLayout Spacing="8" HorizontalOptions="End" IsVisible="{Binding IsEditing}">
+                                <Button Style="{StaticResource OutlineButton}" Text="Cancel"
+                                        Command="{Binding CancelEditCommand, Source={RelativeSource AncestorType={x:Type vm:NotesViewModel}}, x:DataType=vm:NotesViewModel}"
+                                        CommandParameter="{Binding .}" />
+                                <Button Style="{StaticResource AccentButton}" Text="Save"
+                                        Command="{Binding SaveEditCommand, Source={RelativeSource AncestorType={x:Type vm:NotesViewModel}}, x:DataType=vm:NotesViewModel}"
+                                        CommandParameter="{Binding .}" />
+                            </HorizontalStackLayout>
+                        </VerticalStackLayout>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+            <CollectionView.Footer>
+                <BoxView HeightRequest="24" Color="Transparent" />
+            </CollectionView.Footer>
+        </CollectionView>
+
+        <!-- No notes at all -->
+        <VerticalStackLayout Grid.Row="2"
+                             IsVisible="{Binding IsEmpty}"
                              Spacing="10"
                              MaximumWidthRequest="420"
                              VerticalOptions="Center"
                              Margin="0,0,0,80">
             <Label Text="&#xE70B;" Style="{StaticResource EmptyStateIcon}" />
             <Label Text="No notes yet" Style="{StaticResource EmptyStateTitle}" />
-            <Label Text="Select a verse in the reader and choose Note to write down a thought, a sermon point or a prayer. Your notes will be listed here." Style="{StaticResource EmptyStateText}" />
+            <Label Text="Select a verse in the reader and choose Note to write down a thought, a sermon point or a prayer. Your notes will be listed here."
+                   Style="{StaticResource EmptyStateText}" />
         </VerticalStackLayout>
+
+        <!-- Search found nothing -->
+        <Label Grid.Row="2"
+               IsVisible="{Binding HasNoMatches}"
+               Text="No notes match your search."
+               Margin="4,8,0,0"
+               TextColor="{DynamicResource MutedTextColor}" />
     </Grid>
 </ContentPage>

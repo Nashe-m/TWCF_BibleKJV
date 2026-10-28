@@ -86,6 +86,9 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         private Color _highlightColor = Colors.Transparent;
 
         [ObservableProperty]
+        private bool _hasHighlight;
+
+        [ObservableProperty]
         private bool _showsNote;
     }
 
@@ -103,6 +106,10 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             new HighlightSwatch("Pink", "#EE8AB0"),
             new HighlightSwatch("Orange", "#F29A4A"),
         };
+
+        /// <summary>The swatch for a saved colour; colours from elsewhere get their own "Other" swatch.</summary>
+        public static HighlightSwatch Find(string hex) =>
+            All.FirstOrDefault(s => string.Equals(s.Hex, hex, StringComparison.OrdinalIgnoreCase)) ?? new HighlightSwatch("Other", hex);
     }
 
     /// <summary>

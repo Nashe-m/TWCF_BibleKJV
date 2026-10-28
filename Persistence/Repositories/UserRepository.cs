@@ -65,6 +65,11 @@ namespace TWCF_BibleApp.Persistence.Repositories
                 .ToListAsync();
         }
 
+        public async Task<IEnumerable<Note>> GetAllNotesAsync()
+        {
+            return await _db.Notes.AsNoTracking().Select(n => ToNote(n)).ToListAsync();
+        }
+
         public async Task<Note> AddNoteAsync(Note note)
         {
             var entity = new NoteEntity
@@ -109,6 +114,11 @@ namespace TWCF_BibleApp.Persistence.Repositories
                 .OrderBy(h => h.CreatedUtc)
                 .Select(h => ToHighlight(h))
                 .ToListAsync();
+        }
+
+        public async Task<IEnumerable<Highlight>> GetAllHighlightsAsync()
+        {
+            return await _db.Highlights.AsNoTracking().Select(h => ToHighlight(h)).ToListAsync();
         }
 
         public async Task<Highlight> AddHighlightAsync(Highlight highlight)
