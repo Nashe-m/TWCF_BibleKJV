@@ -13,6 +13,7 @@ namespace TWCF_BibleApp.Persistence.Configurations
             builder.Property(x => x.FontScale).IsRequired();
             builder.Property(x => x.Theme).IsRequired();
             builder.Property(x => x.LastTranslationId).IsRequired().HasDefaultValue(1);
+            builder.Property(x => x.ShowWordsOfJesus).IsRequired().HasDefaultValue(true);
         }
     }
 }

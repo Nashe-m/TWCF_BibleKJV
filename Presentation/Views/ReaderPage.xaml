@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:vm="clr-namespace:TWCF_BibleApp.Presentation.ViewModels"
     xmlns:dto="clr-namespace:TWCF_BibleApp.Application.DTOs"
+    xmlns:comp="clr-namespace:TWCF_BibleApp.Presentation.Components"
     x:Class="TWCF_BibleApp.Presentation.Views.ReaderPage"
     x:Name="Root"
     x:DataType="vm:ReaderViewModel"
@@ -112,7 +113,7 @@
                     ItemsSource="{Binding Translations}"
                     ItemDisplayBinding="{Binding DisplayName, x:DataType=dto:TranslationDto}"
                     SelectedItem="{Binding SelectedTranslation, Mode=TwoWay}"
-                    WidthRequest="280"
+                    WidthRequest="240"
                     VerticalOptions="Center"
                     FontSize="15"
                     TextColor="{DynamicResource PageTextColor}"
@@ -182,6 +183,26 @@
                                 ToolTipProperties.Text="Larger text (Ctrl+Plus)" />
                     </HorizontalStackLayout>
                 </Border>
+
+                <!-- Red letter on/off; greyed out for versions without the markup -->
+                <Button Style="{StaticResource OutlineButton}"
+                        Text="Red letter"
+                        FontSize="14"
+                        Padding="12,0"
+                        Margin="4,0,0,0"
+                        TextColor="{DynamicResource MutedTextColor}"
+                        IsEnabled="{Binding HasWordsOfJesus}"
+                        Command="{Binding ToggleWordsOfJesusCommand}"
+                        ToolTipProperties.Text="Words of Jesus in red (Ctrl+R). Available in KJV and WEB.">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding ShowWordsOfJesus}" Value="True">
+                            <Setter Property="TextColor" Value="{DynamicResource WordsOfJesusColor}" />
+                        </DataTrigger>
+                        <DataTrigger TargetType="Button" Binding="{Binding HasWordsOfJesus}" Value="False">
+                            <Setter Property="Opacity" Value="0.45" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
 
                 <Button Style="{StaticResource IconButton}"
                         Text="{Binding ThemeGlyph}"
@@ -260,23 +281,12 @@
                                             <Setter Property="BackgroundColor" Value="{DynamicResource AccentSoftColor}" />
                                         </DataTrigger>
                                     </Border.Triggers>
-                                    <Label FontFamily="{StaticResource ScriptureFont}"
-                                           FontSize="{Binding ReadingFontSize, Source={RelativeSource AncestorType={x:Type vm:ReaderViewModel}}, x:DataType=vm:ReaderViewModel}"
-                                           LineHeight="1.45">
-                                        <Label.FormattedText>
-                                            <FormattedString>
-                                                <Span Text="{Binding Number}"
-                                                      FontFamily="{StaticResource UiFont}"
-                                                      FontAttributes="Bold"
-                                                      FontSize="{Binding VerseNumberFontSize, Source={RelativeSource AncestorType={x:Type vm:ReaderViewModel}}, x:DataType=vm:ReaderViewModel}"
-                                                      TextColor="{DynamicResource AccentColor}" />
-                                                <Span Text="  " />
-                                                <Span Text="{Binding Text}"
-                                                      FontFamily="{StaticResource ScriptureFont}"
-                                                      TextColor="{DynamicResource PageTextColor}" />
-                                            </FormattedString>
-                                        </Label.FormattedText>
-                                    </Label>
+                                    <comp:VerseLabel Verse="{Binding .}"
+                                                     FontFamily="{StaticResource ScriptureFont}"
+                                                     FontSize="{Binding ReadingFontSize, Source={RelativeSource AncestorType={x:Type vm:ReaderViewModel}}, x:DataType=vm:ReaderViewModel}"
+                                                     NumberFontSize="{Binding VerseNumberFontSize, Source={RelativeSource AncestorType={x:Type vm:ReaderViewModel}}, x:DataType=vm:ReaderViewModel}"
+                                                     ShowWordsOfJesus="{Binding ShowWordsOfJesus, Source={RelativeSource AncestorType={x:Type vm:ReaderViewModel}}, x:DataType=vm:ReaderViewModel}"
+                                                     LineHeight="1.45" />
                                 </Border>
                             </DataTemplate>
                         </BindableLayout.ItemTemplate>

@@ -10,5 +10,6 @@ namespace TWCF_BibleApp.Persistence.Entities
         public double FontScale { get; set; } = 1.0;
         public ThemePreference Theme { get; set; } = ThemePreference.System;
         public int LastTranslationId { get; set; } = 1;
+        public bool ShowWordsOfJesus { get; set; } = true;
     }
 }

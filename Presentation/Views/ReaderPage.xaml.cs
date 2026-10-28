@@ -103,6 +103,7 @@ namespace TWCF_BibleApp.Presentation.Views
             AddShortcut(element, Windows.System.VirtualKey.Number0, ctrl, () => _vm.ResetFontCommand.Execute(null));
             AddShortcut(element, Windows.System.VirtualKey.B, ctrl, () => _vm.ToggleSidebarCommand.Execute(null));
             AddShortcut(element, Windows.System.VirtualKey.D, ctrl, () => _vm.ToggleThemeCommand.Execute(null));
+            AddShortcut(element, Windows.System.VirtualKey.R, ctrl, () => _vm.ToggleWordsOfJesusCommand.Execute(null));
             AddShortcut(element, Windows.System.VirtualKey.K, ctrl, FocusSearch);
             AddShortcut(element, Windows.System.VirtualKey.F5, none, () => _vm.ToggleProjectorCommand.Execute(null));
             AddShortcut(element, Windows.System.VirtualKey.F11, none, () => _vm.ToggleProjectorCommand.Execute(null));

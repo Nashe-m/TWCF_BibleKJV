@@ -60,6 +60,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             ToggleProjectorCommand = new RelayCommand(() => IsProjectorMode = !IsProjectorMode);
             ExitProjectorCommand = new RelayCommand(() => IsProjectorMode = false);
             ToggleThemeCommand = new RelayCommand(() => IsDarkMode = !IsDarkMode);
+            ToggleWordsOfJesusCommand = new RelayCommand(() => ShowWordsOfJesus = !ShowWordsOfJesus);
         }
 
         public IAsyncRelayCommand PreviousChapterCommand { get; }
@@ -74,6 +75,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         public IRelayCommand ToggleProjectorCommand { get; }
         public IRelayCommand ExitProjectorCommand { get; }
         public IRelayCommand ToggleThemeCommand { get; }
+        public IRelayCommand ToggleWordsOfJesusCommand { get; }
 
         // ---- Current location ------------------------------------------------------------
 
@@ -106,6 +108,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
                 if (value == null || _selectedTranslation?.Id == value.Id) return;
                 _selectedTranslation = value;
                 OnPropertyChanged(nameof(SelectedTranslation));
+                OnPropertyChanged(nameof(HasWordsOfJesus));
                 if (_initialized)
                     _ = NavigateToAsync(CurrentBookId, CurrentChapter);
             }
@@ -148,6 +151,20 @@ namespace TWCF_BibleApp.Presentation.ViewModels
                 QueueSaveSettings();
             }
         }
+
+        // Red letter: words of Jesus in colour. Only some versions (KJV, WEB) have the markup.
+        private bool _showWordsOfJesus = true;
+        public bool ShowWordsOfJesus
+        {
+            get => _showWordsOfJesus;
+            set
+            {
+                if (SetField(ref _showWordsOfJesus, value))
+                    QueueSaveSettings();
+            }
+        }
+
+        public bool HasWordsOfJesus => SelectedTranslation?.HasWordsOfJesus == true;
 
         // Segoe Fluent Icons: moon to switch to dark, sun to switch to light.
         public string ThemeGlyph => IsDarkMode ? "" : "";
@@ -227,9 +244,11 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             foreach (var t in translations) Translations.Add(t);
             _selectedTranslation = Translations.FirstOrDefault(t => t.Id == setting?.LastTranslationId) ?? Translations.FirstOrDefault();
             OnPropertyChanged(nameof(SelectedTranslation));
+            OnPropertyChanged(nameof(HasWordsOfJesus));
 
             if (setting != null)
             {
+                ShowWordsOfJesus = setting.ShowWordsOfJesus;
                 ReadingFontSize = Math.Clamp(Math.Round(BaseFontSize * setting.FontScale), MinFontSize, MaxFontSize);
                 _isDarkMode = setting.Theme == Domain.Enums.ThemePreference.Dark;
                 OnPropertyChanged(nameof(IsDarkMode));
@@ -392,7 +411,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
                 {
                     var setting = new UserSetting(0, CurrentBookId, CurrentChapter, ReadingFontSize / BaseFontSize,
                         IsDarkMode ? Domain.Enums.ThemePreference.Dark : Domain.Enums.ThemePreference.Light,
-                        SelectedTranslation?.Id ?? 1);
+                        SelectedTranslation?.Id ?? 1, ShowWordsOfJesus);
                     await _userService.SaveUserSettingAsync(setting);
                 }
                 catch (Exception ex)
