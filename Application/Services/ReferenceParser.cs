@@ -10,6 +10,18 @@ namespace TWCF_BibleApp.Application.Services
     public sealed record VerseRange(int Start, int End)
     {
         public bool Contains(int verse) => verse >= Start && verse <= End;
+
+        /// <summary>Groups verse numbers into runs: 16, 17, 18, 20 -> 16-18, 20.</summary>
+        public static IReadOnlyList<VerseRange> FromVerses(IEnumerable<int> verses)
+        {
+            var runs = new List<VerseRange>();
+            foreach (var v in verses.Distinct().OrderBy(v => v))
+            {
+                if (runs.Count > 0 && runs[^1].End == v - 1) runs[^1] = runs[^1] with { End = v };
+                else runs.Add(new VerseRange(v, v));
+            }
+            return runs;
+        }
         public override string ToString() => Start == End ? $"{Start}" : $"{Start}–{End}";
     }
 

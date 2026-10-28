@@ -61,11 +61,11 @@ namespace TWCF_BibleApp.Persistence.Repositories
                 .AsNoTracking()
                 .Where(n => n.BookId == bookId && n.ChapterNumber == chapterNumber)
                 .OrderBy(n => n.CreatedUtc)
-                .Select(n => new Note(n.Id, n.BookId, n.ChapterNumber, n.StartVerseNumber, n.EndVerseNumber, n.Text))
+                .Select(n => ToNote(n))
                 .ToListAsync();
         }
 
-        public async Task AddNoteAsync(Note note)
+        public async Task<Note> AddNoteAsync(Note note)
         {
             var entity = new NoteEntity
             {
@@ -78,6 +78,8 @@ namespace TWCF_BibleApp.Persistence.Repositories
             };
             _db.Notes.Add(entity);
             await _db.SaveChangesAsync();
+            _db.Entry(entity).State = EntityState.Detached;
+            return ToNote(entity);
         }
 
         public async Task UpdateNoteAsync(Note note)
@@ -88,6 +90,7 @@ namespace TWCF_BibleApp.Persistence.Repositories
             existing.ModifiedUtc = note.ModifiedUtc ?? System.DateTime.UtcNow;
             _db.Notes.Update(existing);
             await _db.SaveChangesAsync();
+            _db.Entry(existing).State = EntityState.Detached;
         }
 
         public async Task DeleteNoteAsync(int noteId)
@@ -104,11 +107,11 @@ namespace TWCF_BibleApp.Persistence.Repositories
                 .AsNoTracking()
                 .Where(h => h.BookId == bookId && h.ChapterNumber == chapterNumber)
                 .OrderBy(h => h.CreatedUtc)
-                .Select(h => new Highlight(h.Id, h.BookId, h.ChapterNumber, h.StartVerseNumber, h.EndVerseNumber, h.ColorHex))
+                .Select(h => ToHighlight(h))
                 .ToListAsync();
         }
 
-        public async Task AddHighlightAsync(Highlight highlight)
+        public async Task<Highlight> AddHighlightAsync(Highlight highlight)
         {
             var entity = new HighlightEntity
             {
@@ -121,6 +124,8 @@ namespace TWCF_BibleApp.Persistence.Repositories
             };
             _db.Highlights.Add(entity);
             await _db.SaveChangesAsync();
+            _db.Entry(entity).State = EntityState.Detached;
+            return ToHighlight(entity);
         }
 
         public async Task DeleteHighlightAsync(int highlightId)
@@ -130,5 +135,19 @@ namespace TWCF_BibleApp.Persistence.Repositories
             _db.Highlights.Remove(existing);
             await _db.SaveChangesAsync();
         }
+
+        private static Note ToNote(NoteEntity n) => new()
+        {
+            Id = n.Id, BookId = n.BookId, ChapterNumber = n.ChapterNumber,
+            StartVerseNumber = n.StartVerseNumber, EndVerseNumber = n.EndVerseNumber,
+            Text = n.Text, CreatedUtc = n.CreatedUtc, ModifiedUtc = n.ModifiedUtc,
+        };
+
+        private static Highlight ToHighlight(HighlightEntity h) => new()
+        {
+            Id = h.Id, BookId = h.BookId, ChapterNumber = h.ChapterNumber,
+            StartVerseNumber = h.StartVerseNumber, EndVerseNumber = h.EndVerseNumber,
+            ColorHex = h.ColorHex, CreatedUtc = h.CreatedUtc,
+        };
     }
 }

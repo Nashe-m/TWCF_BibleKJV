@@ -10,12 +10,14 @@ namespace TWCF_BibleApp.Application.Interfaces
         Task SaveUserSettingAsync(UserSetting setting);
 
         Task<IEnumerable<Note>> GetNotesAsync(int bookId, int chapterNumber);
-        Task AddNoteAsync(Note note);
+        /// <summary>Saves a new note and returns it with its Id.</summary>
+        Task<Note> AddNoteAsync(Note note);
         Task UpdateNoteAsync(Note note);
         Task DeleteNoteAsync(int noteId);
 
         Task<IEnumerable<Highlight>> GetHighlightsAsync(int bookId, int chapterNumber);
-        Task AddHighlightAsync(Highlight highlight);
+        /// <summary>Saves a new highlight and returns it with its Id.</summary>
+        Task<Highlight> AddHighlightAsync(Highlight highlight);
         Task DeleteHighlightAsync(int highlightId);
     }
 }

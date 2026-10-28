@@ -72,6 +72,37 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         // A verse the user jumped to (e.g. from "Jn 3:16-18" or a search result).
         [ObservableProperty]
         private bool _isTarget;
+
+        // Tapped to act on (highlight, note, copy...).
+        [ObservableProperty]
+        private bool _isSelected;
+
+        // Saved annotations. What is drawn (HighlightColor, ShowsNote) is set by
+        // ReaderViewModel.ApplyAnnotations, which hides them while projecting.
+        public string? HighlightHex { get; set; }
+        public Domain.Note? Note { get; set; }
+
+        [ObservableProperty]
+        private Color _highlightColor = Colors.Transparent;
+
+        [ObservableProperty]
+        private bool _showsNote;
+    }
+
+    /// <summary>A highlight colour in the verse action bar.</summary>
+    public sealed record HighlightSwatch(string Name, string Hex)
+    {
+        public Color Color => Color.FromArgb(Hex);
+
+        // Bright enough to see under text in both themes once drawn semi-transparent.
+        public static IReadOnlyList<HighlightSwatch> All { get; } = new[]
+        {
+            new HighlightSwatch("Yellow", "#F2CC3A"),
+            new HighlightSwatch("Green", "#6CC070"),
+            new HighlightSwatch("Blue", "#5EA3E6"),
+            new HighlightSwatch("Pink", "#EE8AB0"),
+            new HighlightSwatch("Orange", "#F29A4A"),
+        };
     }
 
     /// <summary>

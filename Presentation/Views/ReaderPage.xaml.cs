@@ -19,11 +19,19 @@ namespace TWCF_BibleApp.Presentation.Views
             _vm.ScrollRequested += OnScrollRequested;
             _vm.ProjectorModeChanged += (_, on) =>
             {
+                KeepCurrentVerseInView();
                 SetFullScreen(on);
                 (Shell.Current as AppShell)?.SetNavigationVisible(!on);
             };
             HandlerChanged += (_, _) => AttachKeyboardShortcuts();
             SearchBox.SizeChanged += (_, _) => AlignSuggestionsPanel();
+
+            // Start typing straight away when the note editor opens.
+            _vm.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(ReaderViewModel.IsNoteEditorOpen) && _vm.IsNoteEditorOpen)
+                    Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(100), () => NoteEditorText.Focus());
+            };
             SizeChanged += (_, _) =>
             {
                 _vm.UpdateLayout(Width);
@@ -57,6 +65,13 @@ namespace TWCF_BibleApp.Presentation.Views
                 Grid.SetColumnSpan(SearchBox, narrow ? 5 : 1);
                 SearchBox.Margin = narrow ? new Thickness(0, 10, 0, 0) : new Thickness(0);
                 VersionPicker.ItemDisplayBinding = new Binding(narrow ? nameof(TranslationDto.Code) : nameof(TranslationDto.DisplayName));
+
+                // Note editor: bottom sheet on a phone, side panel otherwise.
+                NoteEditor.HorizontalOptions = narrow ? LayoutOptions.Fill : LayoutOptions.End;
+                NoteEditor.VerticalOptions = narrow ? LayoutOptions.End : LayoutOptions.Fill;
+                NoteEditor.WidthRequest = narrow ? -1 : 420;
+                NoteEditor.HeightRequest = narrow ? Math.Max(320, Height * 0.6) : -1;
+                NoteEditor.Margin = narrow ? new Thickness(8, 0, 8, 8) : new Thickness(16);
             }
         }
 
@@ -66,26 +81,61 @@ namespace TWCF_BibleApp.Presentation.Views
             await _vm.OnAppearingAsync();
         }
 
+        // The verse to keep in view while the text is still being laid out after a jump.
+        private int _scrollTarget = -1;
+        private DateTime _keepScrollTargetUntil;
+
         private void OnScrollRequested(object? sender, int verseIndex)
         {
-            // Wait a moment so the new verses are laid out before scrolling. Offsets are computed
-            // by hand because ScrollToAsync(element) ignores the offset of the item's parent layout.
-            // Not awaited: on Windows ScrollToAsync never completes when the position doesn't change.
+            _scrollTarget = verseIndex;
+            // Entering projector mode re-wraps the text at a new width a little later, which moves
+            // the verse; VersesLayout.SizeChanged scrolls again until then.
+            _keepScrollTargetUntil = DateTime.UtcNow.AddSeconds(1.5);
+
+            // Wait a moment so the new verses are laid out before scrolling.
             Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(150), () =>
             {
-                if (verseIndex >= 0 && verseIndex < VersesLayout.Children.Count
-                    && VersesLayout.Children[verseIndex] is VisualElement verse)
-                {
-                    var y = VersesLayout.Y + verse.Y - (ReadingScroll.Height - verse.Height) / 2;
-                    _ = ReadingScroll.ScrollToAsync(0, Math.Max(0, y), true);
-                }
-                else
-                {
-                    _ = ReadingScroll.ScrollToAsync(0, 0, false);
-                }
-
+                ScrollToTarget(animate: true);
                 _ = ScrollSidebarToCurrentBookAsync();
             });
+        }
+
+        // Switching projector mode changes the text width; keep the verse being read on screen.
+        private void KeepCurrentVerseInView()
+        {
+            var centre = ReadingScroll.ScrollY + ReadingScroll.Height / 2 - VersesLayout.Y;
+            for (var i = 0; i < VersesLayout.Children.Count; i++)
+            {
+                if (VersesLayout.Children[i] is VisualElement v && centre >= v.Y && centre <= v.Y + v.Height + VersesLayout.Spacing)
+                {
+                    _scrollTarget = i;
+                    _keepScrollTargetUntil = DateTime.UtcNow.AddSeconds(1.5);
+                    return;
+                }
+            }
+        }
+
+        private void VersesLayout_SizeChanged(object? sender, EventArgs e)
+        {
+            if (DateTime.UtcNow < _keepScrollTargetUntil)
+                Dispatcher.Dispatch(() => ScrollToTarget(animate: false));
+        }
+
+        // Offsets are computed by hand because ScrollToAsync(element) ignores the offset of the
+        // item's parent layout. Not awaited: on Windows ScrollToAsync never completes when the
+        // position doesn't change.
+        private void ScrollToTarget(bool animate)
+        {
+            if (_scrollTarget >= 0 && _scrollTarget < VersesLayout.Children.Count
+                && VersesLayout.Children[_scrollTarget] is VisualElement verse)
+            {
+                var y = VersesLayout.Y + verse.Y - (ReadingScroll.Height - verse.Height) / 2;
+                _ = ReadingScroll.ScrollToAsync(0, Math.Max(0, y), animate);
+            }
+            else
+            {
+                _ = ReadingScroll.ScrollToAsync(0, 0, false);
+            }
         }
 
         private BookNavItem? _sidebarBook;
@@ -137,11 +187,31 @@ namespace TWCF_BibleApp.Presentation.Views
             if (sender is Border border) border.BackgroundColor = Colors.Transparent;
         }
 
-        // Esc closes the dropdown, then the drawer or display menu, then leaves projector mode.
+        // Esc closes one thing at a time: dropdown, note editor, selection, drawer or menu, then projector mode.
         private void OnEscape()
         {
             if (_vm.IsSuggestionsOpen) _vm.CloseSuggestions();
+            else if (_vm.IsNoteEditorOpen) _vm.CloseNoteEditor();
+            else if (_vm.HasSelection) _vm.ClearSelection();
             else if (!_vm.CloseOverlays()) _vm.ExitProjectorCommand.Execute(null);
+        }
+
+        // ---- Verse selection --------------------------------------------------------------
+
+        private void Verse_Tapped(object? sender, TappedEventArgs e)
+        {
+            if ((sender as BindableObject)?.BindingContext is VerseItem verse)
+                _vm.ToggleVerseSelection(verse, IsShiftDown());
+        }
+
+        private static bool IsShiftDown()
+        {
+#if WINDOWS
+            return Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Shift)
+                .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+#else
+            return false;
+#endif
         }
 
         private void ProjectorControls_PointerEntered(object? sender, PointerEventArgs e) => ProjectorControls.Opacity = 1;
@@ -184,6 +254,7 @@ namespace TWCF_BibleApp.Presentation.Views
             AddShortcut(element, Windows.System.VirtualKey.F5, none, () => _vm.ToggleProjectorCommand.Execute(null));
             AddShortcut(element, Windows.System.VirtualKey.F11, none, () => _vm.ToggleProjectorCommand.Execute(null));
             AddShortcut(element, Windows.System.VirtualKey.Escape, none, OnEscape);
+            AddShortcut(element, Windows.System.VirtualKey.C, ctrl, () => _vm.CopySelectionCommand.Execute(null), skipWhenTyping: true);
 
             // Chapter navigation, except while typing in a text box.
             AddShortcut(element, Windows.System.VirtualKey.Left, none, () => _vm.PreviousChapterCommand.Execute(null), skipWhenTyping: true);

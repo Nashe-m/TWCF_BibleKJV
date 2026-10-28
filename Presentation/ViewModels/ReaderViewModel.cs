@@ -33,6 +33,8 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         private readonly SemaphoreSlim _loadLock = new(1, 1);
         private CancellationTokenSource? _saveDebounce;
         private CancellationTokenSource? _suggestDebounce;
+        private CancellationTokenSource? _statusTimer;
+        private List<Note> _chapterNotes = new();
         private bool _initialized;
         private (int BookId, int Chapter, int? Verse)? _pendingNavigation;
 
@@ -70,6 +72,17 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             OpenSuggestionCommand = new AsyncRelayCommand<SearchSuggestion>(OpenSuggestionAsync);
             SeeAllResultsCommand = new AsyncRelayCommand(() => OpenSearchPageAsync(SearchText.Trim()));
             ToggleDisplayMenuCommand = new RelayCommand(() => IsDisplayMenuOpen = !IsDisplayMenuOpen);
+            HighlightSelectionCommand = new AsyncRelayCommand<HighlightSwatch>(s => SetSelectionHighlightAsync(s?.Hex));
+            RemoveHighlightCommand = new AsyncRelayCommand(() => SetSelectionHighlightAsync(null));
+            ClearSelectionCommand = new RelayCommand(ClearSelection);
+            CopySelectionCommand = new AsyncRelayCommand(CopySelectionAsync);
+            ShareSelectionCommand = new AsyncRelayCommand(ShareSelectionAsync);
+            PresentSelectionCommand = new RelayCommand(PresentSelection);
+            OpenNoteEditorCommand = new RelayCommand(OpenNoteEditorForSelection);
+            OpenNoteCommand = new RelayCommand<VerseItem>(OpenNoteEditorForVerse);
+            SaveNoteCommand = new AsyncRelayCommand(SaveNoteAsync);
+            DeleteNoteCommand = new AsyncRelayCommand(DeleteNoteAsync);
+            CloseNoteEditorCommand = new RelayCommand(CloseNoteEditor);
             CloseOverlaysCommand = new RelayCommand(() => CloseOverlays());
         }
 
@@ -89,6 +102,17 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         public IAsyncRelayCommand<SearchSuggestion> OpenSuggestionCommand { get; }
         public IAsyncRelayCommand SeeAllResultsCommand { get; }
         public IRelayCommand ToggleDisplayMenuCommand { get; }
+        public IAsyncRelayCommand<HighlightSwatch> HighlightSelectionCommand { get; }
+        public IAsyncRelayCommand RemoveHighlightCommand { get; }
+        public IRelayCommand ClearSelectionCommand { get; }
+        public IAsyncRelayCommand CopySelectionCommand { get; }
+        public IAsyncRelayCommand ShareSelectionCommand { get; }
+        public IRelayCommand PresentSelectionCommand { get; }
+        public IRelayCommand OpenNoteEditorCommand { get; }
+        public IRelayCommand<VerseItem> OpenNoteCommand { get; }
+        public IAsyncRelayCommand SaveNoteCommand { get; }
+        public IAsyncRelayCommand DeleteNoteCommand { get; }
+        public IRelayCommand CloseNoteEditorCommand { get; }
         public IRelayCommand CloseOverlaysCommand { get; }
 
         // ---- Current location ------------------------------------------------------------
@@ -138,6 +162,8 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             {
                 if (!SetField(ref _readingFontSize, value)) return;
                 OnPropertyChanged(nameof(VerseNumberFontSize));
+                OnPropertyChanged(nameof(NoteMarkerFontSize));
+                OnPropertyChanged(nameof(NoteMarkerSize));
                 OnPropertyChanged(nameof(ChapterTitleFontSize));
                 OnPropertyChanged(nameof(VerseSpacing));
                 OnPropertyChanged(nameof(FontSizeLabel));
@@ -146,6 +172,9 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         }
 
         public double VerseNumberFontSize => Math.Max(11, ReadingFontSize * 0.55);
+        // The note icon beside a verse grows with the text so it stays easy to hit.
+        public double NoteMarkerFontSize => Math.Max(16, ReadingFontSize * 0.5);
+        public double NoteMarkerSize => Math.Max(40, NoteMarkerFontSize * 2);
         public double ChapterTitleFontSize => Math.Clamp(ReadingFontSize * 1.6, 40, 140);
         public double VerseSpacing => ReadingFontSize * 0.5;
         public string FontSizeLabel => $"{ReadingFontSize:0} pt";
@@ -162,6 +191,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
                 if (!SetField(ref _isDarkMode, value)) return;
                 ThemeManager.Apply(value);
                 OnPropertyChanged(nameof(ThemeGlyph));
+                ApplyAnnotations();
                 QueueSaveSettings();
             }
         }
@@ -206,7 +236,11 @@ namespace TWCF_BibleApp.Presentation.ViewModels
                 {
                     CloseSuggestions();
                     IsDisplayMenuOpen = false;
+                    CloseNoteEditor();
+                    ClearSelection();
                 }
+                ApplyAnnotations();
+                OnPropertyChanged(nameof(IsActionBarVisible));
                 OnPropertyChanged(nameof(IsChromeVisible));
                 OnPropertyChanged(nameof(IsSidebarVisible));
                 OnPropertyChanged(nameof(IsDrawerOpen));
@@ -366,6 +400,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         public async Task NavigateToAsync(int bookId, int chapter, IReadOnlyList<VerseRange> verses)
         {
             if (!_initialized || SelectedTranslation == null) return;
+            CloseNoteEditor();
 
             await _loadLock.WaitAsync();
             try
@@ -401,6 +436,19 @@ namespace TWCF_BibleApp.Presentation.ViewModels
                     if (item.IsTarget && targetIndex < 0) targetIndex = Verses.Count;
                     Verses.Add(item);
                 }
+
+                // A failure here (e.g. a damaged user database) should not stop the chapter showing.
+                try
+                {
+                    AttachHighlights(await _userService.GetHighlightsAsync(bookId, chapter));
+                    AttachNotes(await _userService.GetNotesAsync(bookId, chapter));
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Loading highlights/notes failed: {ex}");
+                }
+                _selectionAnchor = null;
+                OnSelectionChanged();
 
                 OnPropertyChanged(nameof(LocationLabel));
                 OnPropertyChanged(nameof(ChapterTitle));
@@ -589,6 +637,311 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             OnPropertyChanged(nameof(HasMoreResults));
             OnPropertyChanged(nameof(SeeAllLabel));
             IsSuggestionsOpen = true;
+        }
+
+        // ---- Verse selection and actions -------------------------------------------------
+
+        private VerseItem? _selectionAnchor;
+
+        public IReadOnlyList<HighlightSwatch> HighlightSwatches => HighlightSwatch.All;
+
+        private List<VerseItem> SelectedVerses => Verses.Where(v => v.IsSelected).ToList();
+        public bool HasSelection => Verses.Any(v => v.IsSelected);
+        public bool IsActionBarVisible => HasSelection && !IsProjectorMode && !IsNoteEditorOpen;
+        public string SelectionLabel => HasSelection ? ReferenceFor(SelectedVerses.Select(v => v.Number)) : "";
+        public bool SelectionHasHighlight => Verses.Any(v => v.IsSelected && v.HighlightHex != null);
+        public string NoteActionLabel => FindNote(SelectedVerses.Select(v => v.Number)) != null ? "Edit note" : "Note";
+
+        /// <summary>Tap toggles a verse; with extend (Shift) it selects everything from the last tapped verse.</summary>
+        public void ToggleVerseSelection(VerseItem item, bool extend)
+        {
+            if (IsProjectorMode || !Verses.Contains(item)) return;
+
+            // The jump marker has done its job, and would hide any highlight on the verse.
+            foreach (var v in Verses) v.IsTarget = false;
+
+            if (extend && _selectionAnchor != null && Verses.Contains(_selectionAnchor))
+            {
+                var a = Verses.IndexOf(_selectionAnchor);
+                var b = Verses.IndexOf(item);
+                for (var i = Math.Min(a, b); i <= Math.Max(a, b); i++) Verses[i].IsSelected = true;
+            }
+            else
+            {
+                item.IsSelected = !item.IsSelected;
+                if (item.IsSelected) _selectionAnchor = item;
+            }
+            OnSelectionChanged();
+        }
+
+        public void ClearSelection()
+        {
+            foreach (var v in Verses) v.IsSelected = false;
+            _selectionAnchor = null;
+            OnSelectionChanged();
+        }
+
+        private void OnSelectionChanged()
+        {
+            OnPropertyChanged(nameof(HasSelection));
+            OnPropertyChanged(nameof(IsActionBarVisible));
+            OnPropertyChanged(nameof(SelectionLabel));
+            OnPropertyChanged(nameof(SelectionHasHighlight));
+            OnPropertyChanged(nameof(NoteActionLabel));
+        }
+
+        // "John 3:16-18, 20"
+        private string ReferenceFor(IEnumerable<int> verses) => _currentBook == null ? ""
+            : new BibleReference(_currentBook.Book, CurrentChapter, VerseRange.FromVerses(verses), true).Display;
+
+        private async Task SetSelectionHighlightAsync(string? colorHex)
+        {
+            var verses = SelectedVerses.Select(v => v.Number).ToList();
+            if (verses.Count == 0) return;
+
+            await _loadLock.WaitAsync();
+            try
+            {
+                AttachHighlights(await _userService.SetHighlightAsync(CurrentBookId, CurrentChapter, verses, colorHex));
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Saving highlight failed: {ex}");
+                ShowStatus("Couldn't save the highlight");
+            }
+            finally
+            {
+                _loadLock.Release();
+            }
+            ClearSelection();
+        }
+
+        // Text as it is pasted elsewhere: verse numbers only when there is more than one verse.
+        private string SelectionText()
+        {
+            var verses = SelectedVerses;
+            var body = string.Join(" ", verses.Select(v => verses.Count > 1 ? $"{v.Number} {v.Text}" : v.Text));
+            return $"{body}\n{SelectionLabel} ({SelectedTranslation?.Code})";
+        }
+
+        private async Task CopySelectionAsync()
+        {
+            if (!HasSelection) return;
+            var label = SelectionLabel;
+            await Clipboard.Default.SetTextAsync(SelectionText());
+            ClearSelection();
+            ShowStatus($"Copied {label}");
+        }
+
+        private async Task ShareSelectionAsync()
+        {
+            if (!HasSelection) return;
+            var request = new ShareTextRequest { Title = SelectionLabel, Text = SelectionText() };
+            ClearSelection();
+            await Share.Default.RequestAsync(request);
+        }
+
+        // Straight to the projector with the first selected verse in view.
+        private void PresentSelection()
+        {
+            var first = Verses.IndexOf(Verses.FirstOrDefault(v => v.IsSelected)!);
+            if (first < 0) return;
+            IsProjectorMode = true;
+            ScrollRequested?.Invoke(this, first);
+        }
+
+        // ---- Highlights and notes in the text ----------------------------------------------
+
+        private void AttachHighlights(IEnumerable<Highlight> highlights)
+        {
+            var list = highlights.ToList();
+            foreach (var v in Verses)
+                v.HighlightHex = list.LastOrDefault(h => v.Number >= h.StartVerseNumber && v.Number <= h.EndVerseNumber)?.ColorHex;
+            ApplyAnnotations();
+            OnPropertyChanged(nameof(SelectionHasHighlight));
+        }
+
+        // A note shows on the first verse it covers.
+        private void AttachNotes(IEnumerable<Note> notes)
+        {
+            _chapterNotes = notes.ToList();
+            foreach (var v in Verses)
+                v.Note = _chapterNotes.FirstOrDefault(n => n.StartVerseNumber == v.Number);
+            ApplyAnnotations();
+            OnPropertyChanged(nameof(NoteActionLabel));
+        }
+
+        // Highlights and note markers are hidden while projecting.
+        private void ApplyAnnotations()
+        {
+            var show = !IsProjectorMode;
+            var alpha = IsDarkMode ? 0.30f : 0.38f;
+            foreach (var v in Verses)
+            {
+                v.HighlightColor = show && v.HighlightHex != null ? Color.FromArgb(v.HighlightHex).WithAlpha(alpha) : Colors.Transparent;
+                v.ShowsNote = show && v.Note != null;
+            }
+        }
+
+        // The note for exactly these verses, if there is one.
+        private Note? FindNote(IEnumerable<int> verses)
+        {
+            var list = verses.ToList();
+            if (list.Count == 0) return null;
+            var (start, end) = (list.Min(), list.Max());
+            return _chapterNotes.FirstOrDefault(n => n.StartVerseNumber == start && (n.EndVerseNumber ?? n.StartVerseNumber) == end);
+        }
+
+        // ---- Note editor -------------------------------------------------------------------
+
+        private Note? _editingNote;
+        private (int Start, int End) _noteVerses;
+
+        private bool _isNoteEditorOpen;
+        public bool IsNoteEditorOpen
+        {
+            get => _isNoteEditorOpen;
+            private set
+            {
+                if (SetField(ref _isNoteEditorOpen, value))
+                    OnPropertyChanged(nameof(IsActionBarVisible));
+            }
+        }
+
+        private string _noteText = "";
+        public string NoteText { get => _noteText; set => SetField(ref _noteText, value ?? ""); }
+
+        private string _noteReference = "";
+        public string NoteReference { get => _noteReference; private set => SetField(ref _noteReference, value); }
+
+        private string _notePreview = "";
+        public string NotePreview { get => _notePreview; private set => SetField(ref _notePreview, value); }
+
+        public bool IsEditingExistingNote => _editingNote != null;
+
+        private void OpenNoteEditorForSelection()
+        {
+            var verses = SelectedVerses.Select(v => v.Number).ToList();
+            if (verses.Count == 0) return;
+            OpenNoteEditor(verses.Min(), verses.Max(), FindNote(verses));
+        }
+
+        private void OpenNoteEditorForVerse(VerseItem? item)
+        {
+            if (item?.Note is not { } note || IsProjectorMode) return;
+            OpenNoteEditor(note.StartVerseNumber, note.EndVerseNumber ?? note.StartVerseNumber, note);
+        }
+
+        private void OpenNoteEditor(int start, int end, Note? existing)
+        {
+            _editingNote = existing;
+            _noteVerses = (start, end);
+            NoteText = existing?.Text ?? "";
+            NoteReference = ReferenceFor(Enumerable.Range(start, end - start + 1));
+            NotePreview = string.Join(" ", Verses.Where(v => v.Number >= start && v.Number <= end).Select(v => v.Text));
+            OnPropertyChanged(nameof(IsEditingExistingNote));
+            IsDisplayMenuOpen = false;
+            IsNoteEditorOpen = true;
+        }
+
+        public void CloseNoteEditor()
+        {
+            if (!IsNoteEditorOpen) return;
+            IsNoteEditorOpen = false;
+            _editingNote = null;
+        }
+
+        private async Task SaveNoteAsync()
+        {
+            var text = NoteText.Trim();
+            if (text.Length == 0)
+            {
+                // Saving an emptied note removes it.
+                if (_editingNote != null) await DeleteNoteAsync();
+                else CloseNoteEditor();
+                return;
+            }
+
+            await _loadLock.WaitAsync();
+            try
+            {
+                if (_editingNote != null)
+                    await _userService.UpdateNoteAsync(new Note { Id = _editingNote.Id, Text = text, ModifiedUtc = DateTime.UtcNow });
+                else
+                    await _userService.AddNoteAsync(new Note(0, CurrentBookId, CurrentChapter, _noteVerses.Start,
+                        _noteVerses.End == _noteVerses.Start ? null : _noteVerses.End, text));
+                AttachNotes(await _userService.GetNotesAsync(CurrentBookId, CurrentChapter));
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Saving note failed: {ex}");
+                ShowStatus("Couldn't save the note");
+                return;
+            }
+            finally
+            {
+                _loadLock.Release();
+            }
+
+            CloseNoteEditor();
+            ClearSelection();
+            ShowStatus($"Note saved on {NoteReference}");
+        }
+
+        private async Task DeleteNoteAsync()
+        {
+            if (_editingNote == null) return;
+
+            await _loadLock.WaitAsync();
+            try
+            {
+                await _userService.DeleteNoteAsync(_editingNote.Id);
+                AttachNotes(await _userService.GetNotesAsync(CurrentBookId, CurrentChapter));
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Deleting note failed: {ex}");
+                ShowStatus("Couldn't delete the note");
+                return;
+            }
+            finally
+            {
+                _loadLock.Release();
+            }
+
+            CloseNoteEditor();
+            ClearSelection();
+            ShowStatus("Note deleted");
+        }
+
+        // ---- Status message ("Copied John 3:16") -------------------------------------------
+
+        private string _statusMessage = "";
+        public string StatusMessage
+        {
+            get => _statusMessage;
+            private set
+            {
+                if (SetField(ref _statusMessage, value))
+                    OnPropertyChanged(nameof(HasStatus));
+            }
+        }
+
+        public bool HasStatus => StatusMessage.Length > 0;
+
+        private async void ShowStatus(string message)
+        {
+            _statusTimer?.Cancel();
+            var cts = _statusTimer = new CancellationTokenSource();
+            StatusMessage = message;
+            try
+            {
+                await Task.Delay(2500, cts.Token);
+                StatusMessage = "";
+            }
+            catch (TaskCanceledException)
+            {
+            }
         }
 
         // ---- Settings ----------------------------------------------------------------------

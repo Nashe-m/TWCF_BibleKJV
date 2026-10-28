@@ -304,26 +304,51 @@
                            Margin="0,4,0,24" />
 
                     <VerticalStackLayout x:Name="VersesLayout"
+                                         SizeChanged="VersesLayout_SizeChanged"
                                          Spacing="{Binding VerseSpacing}"
                                          BindableLayout.ItemsSource="{Binding Verses}">
                         <BindableLayout.ItemTemplate>
                             <DataTemplate x:DataType="vm:VerseItem">
-                                <Border StrokeThickness="0"
+                                <!-- Background: highlight colour (or the jump target); outline: selected -->
+                                <Border StrokeThickness="2"
+                                        Stroke="Transparent"
                                         Padding="10,4"
                                         Margin="-10,0"
                                         StrokeShape="RoundRectangle 8"
-                                        BackgroundColor="Transparent">
+                                        BackgroundColor="{Binding HighlightColor}">
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="Verse_Tapped" />
+                                    </Border.GestureRecognizers>
                                     <Border.Triggers>
                                         <DataTrigger TargetType="Border" Binding="{Binding IsTarget}" Value="True">
                                             <Setter Property="BackgroundColor" Value="{DynamicResource AccentSoftColor}" />
                                         </DataTrigger>
+                                        <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
+                                            <Setter Property="Stroke" Value="{DynamicResource AccentColor}" />
+                                        </DataTrigger>
                                     </Border.Triggers>
-                                    <comp:VerseLabel Verse="{Binding .}"
-                                                     FontFamily="{StaticResource ScriptureFont}"
-                                                     FontSize="{Binding ReadingFontSize, Source={RelativeSource AncestorType={x:Type vm:ReaderViewModel}}, x:DataType=vm:ReaderViewModel}"
-                                                     NumberFontSize="{Binding VerseNumberFontSize, Source={RelativeSource AncestorType={x:Type vm:ReaderViewModel}}, x:DataType=vm:ReaderViewModel}"
-                                                     ShowWordsOfJesus="{Binding ShowWordsOfJesus, Source={RelativeSource AncestorType={x:Type vm:ReaderViewModel}}, x:DataType=vm:ReaderViewModel}"
-                                                     LineHeight="1.45" />
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <comp:VerseLabel Verse="{Binding .}"
+                                                         FontFamily="{StaticResource ScriptureFont}"
+                                                         FontSize="{Binding ReadingFontSize, Source={RelativeSource AncestorType={x:Type vm:ReaderViewModel}}, x:DataType=vm:ReaderViewModel}"
+                                                         NumberFontSize="{Binding VerseNumberFontSize, Source={RelativeSource AncestorType={x:Type vm:ReaderViewModel}}, x:DataType=vm:ReaderViewModel}"
+                                                         ShowWordsOfJesus="{Binding ShowWordsOfJesus, Source={RelativeSource AncestorType={x:Type vm:ReaderViewModel}}, x:DataType=vm:ReaderViewModel}"
+                                                         LineHeight="1.45" />
+                                        <!-- Note marker: opens the note -->
+                                        <Button Grid.Column="1"
+                                                Style="{StaticResource IconButton}"
+                                                IsVisible="{Binding ShowsNote}"
+                                                Text="&#xE70B;"
+                                                FontSize="{Binding NoteMarkerFontSize, Source={RelativeSource AncestorType={x:Type vm:ReaderViewModel}}, x:DataType=vm:ReaderViewModel}"
+                                                WidthRequest="{Binding NoteMarkerSize, Source={RelativeSource AncestorType={x:Type vm:ReaderViewModel}}, x:DataType=vm:ReaderViewModel}"
+                                                HeightRequest="{Binding NoteMarkerSize, Source={RelativeSource AncestorType={x:Type vm:ReaderViewModel}}, x:DataType=vm:ReaderViewModel}"
+                                                TextColor="{DynamicResource AccentColor}"
+                                                VerticalOptions="Start"
+                                                Margin="8,2,0,0"
+                                                Command="{Binding OpenNoteCommand, Source={RelativeSource AncestorType={x:Type vm:ReaderViewModel}}, x:DataType=vm:ReaderViewModel}"
+                                                CommandParameter="{Binding .}"
+                                                ToolTipProperties.Text="Open note" />
+                                    </Grid>
                                 </Border>
                             </DataTemplate>
                         </BindableLayout.ItemTemplate>
@@ -351,6 +376,155 @@
                            TextColor="{DynamicResource MutedTextColor}" />
                 </VerticalStackLayout>
             </ScrollView>
+
+            <!-- ============ VERSE ACTION BAR (when verses are selected) ============ -->
+            <Border Grid.Column="1"
+                    ZIndex="3"
+                    IsVisible="{Binding IsActionBarVisible}"
+                    HorizontalOptions="Center"
+                    VerticalOptions="End"
+                    MaximumWidthRequest="720"
+                    Margin="16,0,16,20"
+                    Padding="14,10"
+                    StrokeThickness="1"
+                    Stroke="{DynamicResource BorderColor}"
+                    StrokeShape="RoundRectangle 14"
+                    BackgroundColor="{DynamicResource SurfaceColor}">
+                <Border.Shadow>
+                    <Shadow Brush="Black" Offset="0,6" Radius="20" Opacity="0.2" />
+                </Border.Shadow>
+                <VerticalStackLayout Spacing="8">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="{Binding SelectionLabel}"
+                               FontSize="15"
+                               FontAttributes="Bold"
+                               VerticalOptions="Center" />
+                        <Button Grid.Column="1"
+                                Style="{StaticResource IconButton}"
+                                Text="&#xE711;"
+                                Command="{Binding ClearSelectionCommand}"
+                                ToolTipProperties.Text="Clear selection (Esc)" />
+                    </Grid>
+                    <FlexLayout Wrap="Wrap" AlignItems="Center" JustifyContent="Start">
+                        <!-- Highlight colours -->
+                        <HorizontalStackLayout Spacing="6" Margin="0,0,10,6" BindableLayout.ItemsSource="{Binding HighlightSwatches}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:HighlightSwatch">
+                                    <Border WidthRequest="30"
+                                            HeightRequest="30"
+                                            StrokeThickness="1"
+                                            Stroke="{DynamicResource BorderColor}"
+                                            StrokeShape="Ellipse"
+                                            BackgroundColor="{Binding Color}"
+                                            ToolTipProperties.Text="{Binding Name}">
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer Command="{Binding HighlightSelectionCommand, Source={RelativeSource AncestorType={x:Type vm:ReaderViewModel}}, x:DataType=vm:ReaderViewModel}"
+                                                                  CommandParameter="{Binding .}" />
+                                        </Border.GestureRecognizers>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </HorizontalStackLayout>
+                        <Button Style="{StaticResource IconButton}"
+                                IsVisible="{Binding SelectionHasHighlight}"
+                                Text="&#xE75C;"
+                                Margin="0,0,10,6"
+                                Command="{Binding RemoveHighlightCommand}"
+                                ToolTipProperties.Text="Remove highlight" />
+
+                        <HorizontalStackLayout Spacing="6" Margin="0,0,0,6">
+                            <Button Style="{StaticResource OutlineButton}" Text="{Binding NoteActionLabel}" Command="{Binding OpenNoteEditorCommand}" />
+                            <Button Style="{StaticResource OutlineButton}" Text="Copy" Command="{Binding CopySelectionCommand}" ToolTipProperties.Text="Copy with reference (Ctrl+C)" />
+                            <Button Style="{StaticResource OutlineButton}" Text="Share" Command="{Binding ShareSelectionCommand}" />
+                            <Button Style="{StaticResource AccentButton}" Text="Present" Command="{Binding PresentSelectionCommand}" ToolTipProperties.Text="Show on the projector from here" />
+                        </HorizontalStackLayout>
+                    </FlexLayout>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ============ NOTE EDITOR ============ -->
+            <!-- A side panel on wide screens, a bottom sheet on phones (placed in code-behind). -->
+            <Border x:Name="NoteEditor"
+                    Grid.Column="1"
+                    ZIndex="4"
+                    IsVisible="{Binding IsNoteEditorOpen}"
+                    HorizontalOptions="End"
+                    VerticalOptions="Fill"
+                    WidthRequest="420"
+                    Margin="16"
+                    Padding="20"
+                    StrokeThickness="1"
+                    Stroke="{DynamicResource BorderColor}"
+                    StrokeShape="RoundRectangle 14"
+                    BackgroundColor="{DynamicResource SurfaceColor}">
+                <Border.Shadow>
+                    <Shadow Brush="Black" Offset="0,6" Radius="24" Opacity="0.22" />
+                </Border.Shadow>
+                <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="12">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <VerticalStackLayout>
+                            <Label Text="NOTE" Style="{StaticResource SectionHeaderLabel}" />
+                            <Label Text="{Binding NoteReference}" FontSize="18" FontAttributes="Bold" />
+                        </VerticalStackLayout>
+                        <Button Grid.Column="1"
+                                Style="{StaticResource IconButton}"
+                                Text="&#xE711;"
+                                VerticalOptions="Start"
+                                Command="{Binding CloseNoteEditorCommand}"
+                                ToolTipProperties.Text="Close without saving (Esc)" />
+                    </Grid>
+
+                    <Label Grid.Row="1"
+                           Text="{Binding NotePreview}"
+                           FontFamily="{StaticResource ScriptureFont}"
+                           FontSize="15"
+                           MaxLines="4"
+                           LineBreakMode="TailTruncation"
+                           TextColor="{DynamicResource MutedTextColor}" />
+
+                    <Border Grid.Row="2"
+                            Padding="10,6"
+                            StrokeThickness="1"
+                            Stroke="{DynamicResource BorderColor}"
+                            StrokeShape="RoundRectangle 10"
+                            BackgroundColor="{DynamicResource ChipColor}">
+                        <Editor x:Name="NoteEditorText"
+                                Text="{Binding NoteText}"
+                                Placeholder="Write a thought, a sermon point or a prayer..."
+                                PlaceholderColor="{DynamicResource MutedTextColor}"
+                                TextColor="{DynamicResource PageTextColor}"
+                                BackgroundColor="Transparent"
+                                FontFamily="{StaticResource UiFont}"
+                                FontSize="16"
+                                AutoSize="Disabled" />
+                    </Border>
+
+                    <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
+                        <Button Style="{StaticResource LinkButton}"
+                                IsVisible="{Binding IsEditingExistingNote}"
+                                Text="Delete"
+                                TextColor="{DynamicResource WordsOfJesusColor}"
+                                Command="{Binding DeleteNoteCommand}" />
+                        <Button Grid.Column="2" Style="{StaticResource OutlineButton}" Text="Cancel" Command="{Binding CloseNoteEditorCommand}" />
+                        <Button Grid.Column="3" Style="{StaticResource AccentButton}" Text="Save" Command="{Binding SaveNoteCommand}" />
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <!-- ============ STATUS ("Copied John 3:16") ============ -->
+            <Border Grid.Column="1"
+                    ZIndex="5"
+                    IsVisible="{Binding HasStatus}"
+                    InputTransparent="True"
+                    HorizontalOptions="Center"
+                    VerticalOptions="Start"
+                    Margin="0,16,0,0"
+                    Padding="16,8"
+                    StrokeThickness="0"
+                    StrokeShape="RoundRectangle 20"
+                    BackgroundColor="{DynamicResource PageTextColor}">
+                <Label Text="{Binding StatusMessage}" FontSize="14" TextColor="{DynamicResource PageBackgroundColor}" />
+            </Border>
 
             <!-- Projector mode controls: faint until hovered so they don't distract -->
             <Border x:Name="ProjectorControls"
