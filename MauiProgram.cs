@@ -12,6 +12,10 @@ namespace TWCF_BibleApp
 {
     public static class MauiProgram
     {
+        // Bump whenever Resources/Raw/bible_data.db is regenerated (see Tools/PrepareBibleData.md).
+        private const int BibleDataVersion = 2;
+        private const string BibleDataVersionKey = "BibleDataVersion";
+
         public static IServiceProvider Services { get; private set; }
         public static MauiApp CreateMauiApp()
         {
@@ -29,29 +33,9 @@ namespace TWCF_BibleApp
 
 
 
-            // If bundled bible_data.db exists in app package (Resources/Raw), copy it to AppDataDirectory on first run
-            try
-            {
-                var bundled = Path.Combine(FileSystem.AppDataDirectory, "bible_data.db");
-                // On MAUI the bundled resource will be available via FileSystem.OpenAppPackageFileAsync
-                Task.Run(async () =>
-                {
-                    if (!File.Exists(bibleDbPath))
-                    {
-                        try
-                        {
-                            using var stream = await FileSystem.OpenAppPackageFileAsync("bible_data.db");
-                            using var fs = File.Create(bibleDbPath);
-                            await stream.CopyToAsync(fs);
-                        }
-                        catch
-                        {
-                            // ignore if no bundled DB present
-                        }
-                    }
-                }).GetAwaiter().GetResult();
-            }
-            catch { }
+            // Copy the bundled bible_data.db (Resources/Raw) to AppDataDirectory on first run,
+            // and again whenever BibleDataVersion is bumped so new translations reach existing installs.
+            Task.Run(() => CopyBundledBibleDataAsync(bibleDbPath)).GetAwaiter().GetResult();
 
             // BibleDataContext (read-only) - use SQLite file copied to AppDataDirectory beforehand
             builder.Services.AddDbContext<BibleDataContext>(options =>
@@ -94,6 +78,30 @@ namespace TWCF_BibleApp
             }
 
             return app;
+        }
+
+        private static async Task CopyBundledBibleDataAsync(string bibleDbPath)
+        {
+            if (File.Exists(bibleDbPath) && Preferences.Default.Get(BibleDataVersionKey, 0) >= BibleDataVersion)
+                return;
+
+            try
+            {
+                // Copy to a temp file first so a failed copy never leaves a half-written database.
+                var tempPath = bibleDbPath + ".tmp";
+                using (var stream = await FileSystem.OpenAppPackageFileAsync("bible_data.db"))
+                using (var fs = File.Create(tempPath))
+                {
+                    await stream.CopyToAsync(fs);
+                }
+
+                File.Move(tempPath, bibleDbPath, overwrite: true);
+                Preferences.Default.Set(BibleDataVersionKey, BibleDataVersion);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to copy bundled bible_data.db: {ex}");
+            }
         }
     }
 }

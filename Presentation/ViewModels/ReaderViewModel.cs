@@ -23,6 +23,22 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         public ObservableCollection<BookDto> FilteredBooks { get; } = new();
         public ObservableCollection<int> FilteredChapters { get; } = new();
         public ObservableCollection<VerseDto> Verses { get; } = new();
+        public ObservableCollection<TranslationDto> Translations { get; } = new();
+
+        private TranslationDto? _selectedTranslation;
+        public TranslationDto? SelectedTranslation
+        {
+            get => _selectedTranslation;
+            set
+            {
+                if (value != null && _selectedTranslation?.Id != value.Id)
+                {
+                    _selectedTranslation = value;
+                    OnPropertyChanged(nameof(SelectedTranslation));
+                    _ = LoadChapterAsync();
+                }
+            }
+        }
 
         private BookDto? _selectedBook;
         public BookDto? SelectedBook
@@ -167,6 +183,15 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             FilterBooks();
 
             var setting = await _userService.GetUserSettingAsync();
+
+            var translations = await _bibleService.GetTranslationsAsync();
+            Translations.Clear();
+            foreach (var t in translations) Translations.Add(t);
+
+            // Set the backing field so the chapter is loaded once, below, not per property change.
+            _selectedTranslation = Translations.FirstOrDefault(t => t.Id == setting?.LastTranslationId) ?? Translations.FirstOrDefault();
+            OnPropertyChanged(nameof(SelectedTranslation));
+
             if (setting != null)
             {
                 FontScale = setting.FontScale;
@@ -214,8 +239,8 @@ namespace TWCF_BibleApp.Presentation.ViewModels
 
         public async Task LoadChapterAsync()
         {
-            if (SelectedBook == null) return;
-            var verses = await _bibleService.GetChapterVersesAsync(SelectedBook.Id, SelectedChapter, 1);
+            if (SelectedBook == null || SelectedTranslation == null) return;
+            var verses = await _bibleService.GetChapterVersesAsync(SelectedBook.Id, SelectedChapter, SelectedTranslation.Id);
             Verses.Clear();
             foreach (var v in verses) Verses.Add(v);
 
@@ -227,7 +252,8 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             try
             {
                 var setting = new UserSetting(0, SelectedBook?.Id ?? 0, SelectedChapter, FontScale,
-                    IsDarkMode ? Domain.Enums.ThemePreference.Dark : Domain.Enums.ThemePreference.Light);
+                    IsDarkMode ? Domain.Enums.ThemePreference.Dark : Domain.Enums.ThemePreference.Light,
+                    SelectedTranslation?.Id ?? 1);
                 await _userService.SaveUserSettingAsync(setting);
             }
             catch { }

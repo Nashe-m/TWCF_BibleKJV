@@ -12,6 +12,7 @@ namespace TWCF_BibleApp.Persistence.Configurations
             builder.HasKey(x => x.Id);
             builder.Property(x => x.FontScale).IsRequired();
             builder.Property(x => x.Theme).IsRequired();
+            builder.Property(x => x.LastTranslationId).IsRequired().HasDefaultValue(1);
         }
     }
 }

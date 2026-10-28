@@ -9,5 +9,6 @@ namespace TWCF_BibleApp.Persistence.Entities
         public int LastChapterNumber { get; set; }
         public double FontScale { get; set; } = 1.0;
         public ThemePreference Theme { get; set; } = ThemePreference.System;
+        public int LastTranslationId { get; set; } = 1;
     }
 }

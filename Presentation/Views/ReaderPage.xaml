@@ -5,7 +5,7 @@
     x:Class="TWCF_BibleApp.Presentation.Views.ReaderPage"
     BackgroundColor="{DynamicResource PageBackgroundColor}">
 
-    <Grid RowDefinitions="Auto,*,Auto" Padding="20">
+    <Grid RowDefinitions="Auto,*,Auto,Auto" Padding="20">
 
         <!--TOP BAR -->
         <HorizontalStackLayout Grid.Row="0" Spacing="12">
@@ -53,6 +53,14 @@
                     </CollectionView.ItemTemplate>
                 </CollectionView>
             </VerticalStackLayout>
+
+            <!--BIBLE VERSION -->
+            <Picker ItemsSource="{Binding Translations}"
+                    ItemDisplayBinding="{Binding DisplayName}"
+                    SelectedItem="{Binding SelectedTranslation, Mode=TwoWay}"
+                    Title="Version"
+                    WidthRequest="260"
+                    VerticalOptions="Start"/>
 
             <Button Text="🔍 Search"
                     Command="{Binding GoToSearchCommand}"
@@ -115,6 +123,14 @@
             <Button Text="Next ▶"
                     Command="{Binding NextChapterCommand}" />
         </HorizontalStackLayout>
+
+        <!--Attribution required by some licences (e.g. Shona, CC BY-SA) -->
+        <Label Grid.Row="3"
+               Text="{Binding SelectedTranslation.Copyright}"
+               FontSize="11"
+               HorizontalOptions="Center"
+               HorizontalTextAlignment="Center"
+               TextColor="{DynamicResource MutedTextColor}" />
 
     </Grid>
 </ContentPage>

@@ -13,7 +13,7 @@ namespace TWCF_BibleApp.Application.Interfaces
         /// Load full chapter (all verses) in a single query. Always read-only.
         /// </summary>
         Task<IEnumerable<VerseDto>> GetChapterVersesAsync(int bookId, int chapterNumber, int translationId);
-        Task<List<Verse>> SearchVersesAsync(string query);
+        Task<List<Verse>> SearchVersesAsync(string query, int translationId);
         Task<IEnumerable<TranslationDto>> GetTranslationsAsync();
         Task<TranslationDto?> GetTranslationAsync(int translationId);
     }

@@ -22,7 +22,7 @@ namespace TWCF_BibleApp.Persistence.Repositories
         {
             var e = await _db.UserSettings.AsNoTracking().FirstOrDefaultAsync();
             if (e == null) return null;
-            return new UserSetting(e.Id, e.LastBookId, e.LastChapterNumber, e.FontScale, e.Theme);
+            return new UserSetting(e.Id, e.LastBookId, e.LastChapterNumber, e.FontScale, e.Theme, e.LastTranslationId);
         }
 
         public async Task SaveUserSettingAsync(UserSetting setting)
@@ -35,7 +35,8 @@ namespace TWCF_BibleApp.Persistence.Repositories
                     LastBookId = setting.LastBookId,
                     LastChapterNumber = setting.LastChapterNumber,
                     FontScale = setting.FontScale,
-                    Theme = setting.Theme
+                    Theme = setting.Theme,
+                    LastTranslationId = setting.LastTranslationId
                 };
                 _db.UserSettings.Add(entity);
             }
@@ -45,6 +46,7 @@ namespace TWCF_BibleApp.Persistence.Repositories
                 existing.LastChapterNumber = setting.LastChapterNumber;
                 existing.FontScale = setting.FontScale;
                 existing.Theme = setting.Theme;
+                existing.LastTranslationId = setting.LastTranslationId;
                 _db.UserSettings.Update(existing);
             }
 

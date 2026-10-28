@@ -43,15 +43,15 @@ namespace TWCF_BibleApp.Persistence.Repositories
                 .AsNoTracking()
                 .Where(v => v.BookId == bookId && v.ChapterNumber == chapterNumber && v.TranslationId == translationId)
                 .OrderBy(v => v.VerseNumber)
-                .Select(v => new VerseDto { Id = v.Id, BookId = v.BookId, ChapterNumber = v.ChapterNumber, VerseNumber = v.VerseNumber, Text = v.Text })
+                .Select(v => new VerseDto { Id = v.Id, BookId = v.BookId, ChapterNumber = v.ChapterNumber, VerseNumber = v.VerseNumber, Text = v.Text, MarkedText = v.MarkedText })
                 .ToListAsync();
         }
 
-        public async Task<List<Verse>> SearchVersesAsync(string query)
+        public async Task<List<Verse>> SearchVersesAsync(string query, int translationId)
         {
             var entities = await _db.Verses
                 .Include(v => v.Book)
-                .Where(v => EF.Functions.Like(v.Text, $"%{query}%"))
+                .Where(v => v.TranslationId == translationId && EF.Functions.Like(v.Text, $"%{query}%"))
                 .OrderBy(v => v.Book.OrderNumber)
                 .ThenBy(v => v.ChapterNumber)
                 .ThenBy(v => v.VerseNumber)
@@ -77,7 +77,8 @@ namespace TWCF_BibleApp.Persistence.Repositories
         {
             return await _db.Translations
                 .AsNoTracking()
-                .Select(t => new TranslationDto { Id = t.Id, Code = t.Code, Name = t.Name })
+                .OrderBy(t => t.Id)
+                .Select(t => new TranslationDto { Id = t.Id, Code = t.Code, Name = t.Name, Language = t.Language, Copyright = t.Copyright, HasWordsOfJesus = t.HasWordsOfJesus })
                 .ToListAsync();
         }
 
@@ -85,7 +86,7 @@ namespace TWCF_BibleApp.Persistence.Repositories
         {
             var t = await _db.Translations.AsNoTracking().FirstOrDefaultAsync(x => x.Id == translationId);
             if (t == null) return null;
-            return new TranslationDto { Id = t.Id, Code = t.Code, Name = t.Name };
+            return new TranslationDto { Id = t.Id, Code = t.Code, Name = t.Name, Language = t.Language, Copyright = t.Copyright, HasWordsOfJesus = t.HasWordsOfJesus };
         }
     }
 }

@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using System.Windows.Input;
 using TWCF_BibleApp.Application.DTOs;
 using TWCF_BibleApp.Application.Interfaces;
+using TWCF_BibleApp.Application.Services;
 using CommunityToolkit.Mvvm.Input;
 
 namespace TWCF_BibleApp.Presentation.ViewModels
@@ -12,6 +13,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
     public class SearchViewModel : INotifyPropertyChanged
     {
         private readonly IBibleRepository _repository;
+        private readonly UserService _userService;
 
         public event PropertyChangedEventHandler? PropertyChanged;
         private void OnPropertyChanged([CallerMemberName] string? name = null)
@@ -36,9 +38,10 @@ namespace TWCF_BibleApp.Presentation.ViewModels
 
         public ICommand PerformSearchCommand { get; }
 
-        public SearchViewModel(IBibleRepository repository)
+        public SearchViewModel(IBibleRepository repository, UserService userService)
         {
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
+            _userService = userService ?? throw new ArgumentNullException(nameof(userService));
             PerformSearchCommand = new AsyncRelayCommand(PerformSearch);
         }
 
@@ -46,7 +49,9 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         {
             if (string.IsNullOrWhiteSpace(SearchQuery)) return;
 
-            var results = await _repository.SearchVersesAsync(SearchQuery);
+            // Search the version the reader is currently showing.
+            var translationId = (await _userService.GetUserSettingAsync())?.LastTranslationId ?? 1;
+            var results = await _repository.SearchVersesAsync(SearchQuery, translationId);
 
             SearchResults.Clear();
             foreach (var verse in results)
