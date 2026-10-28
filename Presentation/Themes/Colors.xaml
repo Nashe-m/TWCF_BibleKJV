@@ -1,12 +1,50 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
 
-    <Color x:Key="LightBackground">#FFFFFF</Color>
-    <Color x:Key="LightText">#111111</Color>
-    <Color x:Key="MutedTextColor">#6B6B6B</Color>
+    <!--
+        Theme tokens. Views use the un-prefixed keys through DynamicResource;
+        ThemeManager copies the Light*/Dark* values onto them when the theme changes.
+    -->
 
-    <Color x:Key="DarkBackground">#0B0B0B</Color>
-    <Color x:Key="DarkText">#EDEDED</Color>
+    <!-- Light: warm paper -->
+    <Color x:Key="LightPageBackgroundColor">#F7F4EE</Color>
+    <Color x:Key="LightSurfaceColor">#FBFAF7</Color>
+    <Color x:Key="LightBorderColor">#E6E1D8</Color>
+    <Color x:Key="LightPageTextColor">#1F1D1A</Color>
+    <Color x:Key="LightMutedTextColor">#6F695F</Color>
+    <Color x:Key="LightAccentColor">#2B4C7E</Color>
+    <Color x:Key="LightAccentTextColor">#FFFFFF</Color>
+    <Color x:Key="LightAccentSoftColor">#E1E8F3</Color>
+    <Color x:Key="LightChipColor">#EFEBE3</Color>
+    <Color x:Key="LightWordsOfJesusColor">#B3261E</Color>
+
+    <!-- Dark: high contrast, tuned for projectors (cream on near-black) -->
+    <Color x:Key="DarkPageBackgroundColor">#0F0F11</Color>
+    <Color x:Key="DarkSurfaceColor">#17171A</Color>
+    <Color x:Key="DarkBorderColor">#2A2A2F</Color>
+    <Color x:Key="DarkPageTextColor">#F3EEE4</Color>
+    <Color x:Key="DarkMutedTextColor">#A29C91</Color>
+    <Color x:Key="DarkAccentColor">#8DB4F2</Color>
+    <Color x:Key="DarkAccentTextColor">#0F0F11</Color>
+    <Color x:Key="DarkAccentSoftColor">#1E2A3D</Color>
+    <Color x:Key="DarkChipColor">#232328</Color>
+    <Color x:Key="DarkWordsOfJesusColor">#FF7A70</Color>
+
+    <!-- Active values (light by default) -->
+    <Color x:Key="PageBackgroundColor">#F7F4EE</Color>
+    <Color x:Key="SurfaceColor">#FBFAF7</Color>
+    <Color x:Key="BorderColor">#E6E1D8</Color>
+    <Color x:Key="PageTextColor">#1F1D1A</Color>
+    <Color x:Key="MutedTextColor">#6F695F</Color>
+    <Color x:Key="AccentColor">#2B4C7E</Color>
+    <Color x:Key="AccentTextColor">#FFFFFF</Color>
+    <Color x:Key="AccentSoftColor">#E1E8F3</Color>
+    <Color x:Key="ChipColor">#EFEBE3</Color>
+    <Color x:Key="WordsOfJesusColor">#B3261E</Color>
+
+    <x:String x:Key="ScriptureFont">Georgia</x:String>
+    <x:String x:Key="UiFont">Segoe UI</x:String>
+    <x:String x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</x:String>
 
     <Style x:Key="PageStyle" TargetType="ContentPage">
         <Setter Property="BackgroundColor" Value="{DynamicResource PageBackgroundColor}" />

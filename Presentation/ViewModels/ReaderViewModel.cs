@@ -1,29 +1,101 @@
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Maui.Controls;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
-using System.Windows.Input;
 using TWCF_BibleApp.Application.DTOs;
 using TWCF_BibleApp.Application.Services;
 using TWCF_BibleApp.Domain;
+using TWCF_BibleApp.Presentation.Themes;
 using TWCF_BibleApp.Presentation.Views;
 
 namespace TWCF_BibleApp.Presentation.ViewModels
 {
-    public class ReaderViewModel : System.ComponentModel.INotifyPropertyChanged
+    public class ReaderViewModel : System.ComponentModel.INotifyPropertyChanged, IQueryAttributable
     {
+        // Reading font size in points = BaseFontSize * FontScale (FontScale is what UserSetting stores).
+        private const double BaseFontSize = 14.0;
+        private const double MinFontSize = 16.0;
+        private const double MaxFontSize = 144.0;
+        private const double DefaultFontSize = 28.0;
+
         private readonly BibleService _bibleService;
         private readonly UserService _userService;
 
-        private ObservableCollection<BookDto> _allBooks = new();
-        private ObservableCollection<int> _allChapters = new();
+        // BibleDataContext and UserDataContext are shared, so never run two queries at once.
+        private readonly SemaphoreSlim _loadLock = new(1, 1);
+        private CancellationTokenSource? _saveDebounce;
+        private bool _initialized;
+        private (int BookId, int Chapter, int? Verse)? _pendingNavigation;
 
-        public ObservableCollection<BookDto> FilteredBooks { get; } = new();
-        public ObservableCollection<int> FilteredChapters { get; } = new();
-        public ObservableCollection<VerseDto> Verses { get; } = new();
+        private readonly List<BookNavItem> _books = new();
+        private BookNavItem? _currentBook;
+
+        public ObservableCollection<BookNavItem> OldTestamentBooks { get; } = new();
+        public ObservableCollection<BookNavItem> NewTestamentBooks { get; } = new();
+        public ObservableCollection<VerseItem> Verses { get; } = new();
         public ObservableCollection<TranslationDto> Translations { get; } = new();
+
+        /// <summary>Raised after a chapter loads: the verse index to scroll to, or -1 for the top.</summary>
+        public event EventHandler<int>? ScrollRequested;
+        public event EventHandler<bool>? ProjectorModeChanged;
+
+        public ReaderViewModel(BibleService bibleService, UserService userService)
+        {
+            _bibleService = bibleService ?? throw new ArgumentNullException(nameof(bibleService));
+            _userService = userService ?? throw new ArgumentNullException(nameof(userService));
+
+            PreviousChapterCommand = new AsyncRelayCommand(GoToPreviousChapterAsync);
+            NextChapterCommand = new AsyncRelayCommand(GoToNextChapterAsync);
+            SelectBookCommand = new AsyncRelayCommand<BookNavItem>(SelectBookAsync);
+            SelectChapterCommand = new AsyncRelayCommand<ChapterNavItem>(c => c == null ? Task.CompletedTask : NavigateToAsync(CurrentBookId, c.Number));
+            SubmitSearchCommand = new AsyncRelayCommand(SubmitSearchAsync);
+            IncreaseFontCommand = new RelayCommand(() => SetFontSize(ReadingFontSize < 40 ? ReadingFontSize + 2 : ReadingFontSize * 1.1));
+            DecreaseFontCommand = new RelayCommand(() => SetFontSize(ReadingFontSize <= 40 ? ReadingFontSize - 2 : ReadingFontSize / 1.1));
+            ResetFontCommand = new RelayCommand(() => SetFontSize(DefaultFontSize));
+            ToggleSidebarCommand = new RelayCommand(() => IsSidebarOpen = !IsSidebarOpen);
+            ToggleProjectorCommand = new RelayCommand(() => IsProjectorMode = !IsProjectorMode);
+            ExitProjectorCommand = new RelayCommand(() => IsProjectorMode = false);
+            ToggleThemeCommand = new RelayCommand(() => IsDarkMode = !IsDarkMode);
+        }
+
+        public IAsyncRelayCommand PreviousChapterCommand { get; }
+        public IAsyncRelayCommand NextChapterCommand { get; }
+        public IAsyncRelayCommand<BookNavItem> SelectBookCommand { get; }
+        public IAsyncRelayCommand<ChapterNavItem> SelectChapterCommand { get; }
+        public IAsyncRelayCommand SubmitSearchCommand { get; }
+        public IRelayCommand IncreaseFontCommand { get; }
+        public IRelayCommand DecreaseFontCommand { get; }
+        public IRelayCommand ResetFontCommand { get; }
+        public IRelayCommand ToggleSidebarCommand { get; }
+        public IRelayCommand ToggleProjectorCommand { get; }
+        public IRelayCommand ExitProjectorCommand { get; }
+        public IRelayCommand ToggleThemeCommand { get; }
+
+        // ---- Current location ------------------------------------------------------------
+
+        private int CurrentBookId => _currentBook?.Book.Id ?? 0;
+        public BookNavItem? CurrentBook => _currentBook;
+
+        private int _currentChapter;
+        public int CurrentChapter
+        {
+            get => _currentChapter;
+            private set => SetField(ref _currentChapter, value);
+        }
+
+        public string LocationLabel => _currentBook == null ? "" : $"{_currentBook.DisplayName}  ›  {CurrentChapter}";
+        public string ChapterTitle => _currentBook == null ? "" : $"{ChapterWord(_currentBook)} {CurrentChapter}";
+        public string TestamentLabel => _currentBook?.Book.Testament == "NT" ? "NEW TESTAMENT" : "OLD TESTAMENT";
+
+        private string _previousLabel = "";
+        public string PreviousLabel { get => _previousLabel; private set => SetField(ref _previousLabel, value); }
+
+        private string _nextLabel = "";
+        public string NextLabel { get => _nextLabel; private set => SetField(ref _nextLabel, value); }
 
         private TranslationDto? _selectedTranslation;
         public TranslationDto? SelectedTranslation
@@ -31,110 +103,38 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             get => _selectedTranslation;
             set
             {
-                if (value != null && _selectedTranslation?.Id != value.Id)
-                {
-                    _selectedTranslation = value;
-                    OnPropertyChanged(nameof(SelectedTranslation));
-                    _ = LoadChapterAsync();
-                }
+                if (value == null || _selectedTranslation?.Id == value.Id) return;
+                _selectedTranslation = value;
+                OnPropertyChanged(nameof(SelectedTranslation));
+                if (_initialized)
+                    _ = NavigateToAsync(CurrentBookId, CurrentChapter);
             }
         }
 
-        private BookDto? _selectedBook;
-        public BookDto? SelectedBook
+        // ---- Display settings ------------------------------------------------------------
+
+        private double _readingFontSize = DefaultFontSize;
+        public double ReadingFontSize
         {
-            get => _selectedBook;
-            set
+            get => _readingFontSize;
+            private set
             {
-                if (_selectedBook != value)
-                {
-                    _selectedBook = value;
-                    OnPropertyChanged(nameof(SelectedBook));
-                    if (_selectedBook != null)
-                        _ = LoadChaptersAsync(_selectedBook.Id);
-                }
+                if (!SetField(ref _readingFontSize, value)) return;
+                OnPropertyChanged(nameof(VerseNumberFontSize));
+                OnPropertyChanged(nameof(ChapterTitleFontSize));
+                OnPropertyChanged(nameof(VerseSpacing));
+                OnPropertyChanged(nameof(FontSizeLabel));
+                OnPropertyChanged(nameof(ReadingColumnWidth));
             }
         }
 
-        private int _selectedChapter;
-        public int SelectedChapter
-        {
-            get => _selectedChapter;
-            set
-            {
-                if (_selectedChapter != value)
-                {
-                    _selectedChapter = value;
-                    OnPropertyChanged(nameof(SelectedChapter));
+        public double VerseNumberFontSize => Math.Max(11, ReadingFontSize * 0.55);
+        public double ChapterTitleFontSize => Math.Clamp(ReadingFontSize * 1.6, 40, 140);
+        public double VerseSpacing => ReadingFontSize * 0.5;
+        public string FontSizeLabel => $"{ReadingFontSize:0} pt";
 
-                    // Update search query to sync UI
-                    ChapterSearchQuery = _selectedChapter.ToString();
-
-                    _ = LoadChapterAsync();
-                }
-            }
-        }
-
-        private string _bookSearchQuery = string.Empty;
-        public string BookSearchQuery
-        {
-            get => _bookSearchQuery;
-            set
-            {
-                if (_bookSearchQuery != value)
-                {
-                    _bookSearchQuery = value;
-                    OnPropertyChanged(nameof(BookSearchQuery));
-                    FilterBooks();
-                    IsBookDropdownVisible = FilteredBooks.Count > 0;
-                }
-            }
-        }
-
-        private string _chapterSearchQuery = string.Empty;
-        public string ChapterSearchQuery
-        {
-            get => _chapterSearchQuery;
-            set
-            {
-                if (_chapterSearchQuery != value)
-                {
-                    _chapterSearchQuery = value;
-                    OnPropertyChanged(nameof(ChapterSearchQuery));
-                    FilterChapters();
-                    IsChapterDropdownVisible = FilteredChapters.Count > 0;
-                }
-            }
-        }
-
-        private bool _isBookDropdownVisible;
-        public bool IsBookDropdownVisible
-        {
-            get => _isBookDropdownVisible;
-            set { _isBookDropdownVisible = value; OnPropertyChanged(nameof(IsBookDropdownVisible)); }
-        }
-
-        private bool _isChapterDropdownVisible;
-        public bool IsChapterDropdownVisible
-        {
-            get => _isChapterDropdownVisible;
-            set { _isChapterDropdownVisible = value; OnPropertyChanged(nameof(IsChapterDropdownVisible)); }
-        }
-
-        private double _fontScale = 1.0;
-        public double FontScale
-        {
-            get => _fontScale;
-            set
-            {
-                if (Math.Abs(_fontScale - value) > 0.001)
-                {
-                    _fontScale = value;
-                    OnPropertyChanged(nameof(FontScale));
-                    _ = SaveSettingsAsync();
-                }
-            }
-        }
+        // Keep lines a readable length on a desktop; use the whole screen when projecting.
+        public double ReadingColumnWidth => IsProjectorMode ? double.PositiveInfinity : Math.Max(760, ReadingFontSize * 30);
 
         private bool _isDarkMode;
         public bool IsDarkMode
@@ -142,233 +142,287 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             get => _isDarkMode;
             set
             {
-                if (_isDarkMode != value)
-                {
-                    _isDarkMode = value;
-                    OnPropertyChanged(nameof(IsDarkMode));
-                    ApplyTheme(_isDarkMode);
-                    _ = SaveSettingsAsync();
-                }
+                if (!SetField(ref _isDarkMode, value)) return;
+                ThemeManager.Apply(value);
+                OnPropertyChanged(nameof(ThemeGlyph));
+                QueueSaveSettings();
             }
         }
 
-        public ICommand IncreaseFontCommand { get; }
-        public ICommand DecreaseFontCommand { get; }
-        public ICommand GoToSearchCommand => new Command(async () => await Shell.Current.GoToAsync(nameof(SearchPage)));
-        public IAsyncRelayCommand LoadChapterCommand { get; }
-        public IAsyncRelayCommand NextChapterCommand { get; }
-        public IAsyncRelayCommand PreviousChapterCommand { get; }
+        // Segoe Fluent Icons: moon to switch to dark, sun to switch to light.
+        public string ThemeGlyph => IsDarkMode ? "" : "";
 
-        public ReaderViewModel(BibleService bibleService, UserService userService)
+        private bool _isSidebarOpen = true;
+        public bool IsSidebarOpen
         {
-            _bibleService = bibleService ?? throw new ArgumentNullException(nameof(bibleService));
-            _userService = userService ?? throw new ArgumentNullException(nameof(userService));
-
-            IncreaseFontCommand = new RelayCommand(() => FontScale = Math.Min(4.0, FontScale + 0.1));
-            DecreaseFontCommand = new RelayCommand(() => FontScale = Math.Max(0.4, FontScale - 0.1));
-            LoadChapterCommand = new AsyncRelayCommand(LoadChapterAsync);
-            NextChapterCommand = new AsyncRelayCommand(GoToNextChapterAsync);
-            PreviousChapterCommand = new AsyncRelayCommand(GoToPreviousChapterAsync);
+            get => _isSidebarOpen;
+            set
+            {
+                if (SetField(ref _isSidebarOpen, value))
+                    OnPropertyChanged(nameof(IsSidebarVisible));
+            }
         }
 
-        public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
-        private void OnPropertyChanged(string name) => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(name));
+        private bool _isProjectorMode;
+        public bool IsProjectorMode
+        {
+            get => _isProjectorMode;
+            set
+            {
+                if (!SetField(ref _isProjectorMode, value)) return;
+                OnPropertyChanged(nameof(IsChromeVisible));
+                OnPropertyChanged(nameof(IsSidebarVisible));
+                OnPropertyChanged(nameof(ReadingColumnWidth));
+                OnPropertyChanged(nameof(ReadingPadding));
+                ProjectorModeChanged?.Invoke(this, value);
+            }
+        }
 
-        public async Task InitializeAsync()
+        public bool IsChromeVisible => !IsProjectorMode;
+        public bool IsSidebarVisible => IsSidebarOpen && !IsProjectorMode;
+        public Thickness ReadingPadding => IsProjectorMode ? new Thickness(72, 48, 72, 96) : new Thickness(48, 40, 48, 64);
+
+        private string _searchText = string.Empty;
+        public string SearchText { get => _searchText; set => SetField(ref _searchText, value); }
+
+        // ---- Loading -----------------------------------------------------------------------
+
+        public async Task OnAppearingAsync()
+        {
+            if (!_initialized)
+                await InitializeAsync();
+
+            if (_pendingNavigation is { } nav)
+            {
+                _pendingNavigation = null;
+                await NavigateToAsync(nav.BookId, nav.Chapter, nav.Verse);
+            }
+        }
+
+        // Shell passes ?bookId=&chapter=&verse= when a search result is opened.
+        public void ApplyQueryAttributes(IDictionary<string, object> query)
+        {
+            // Applied by OnAppearingAsync, which Shell calls right after this.
+            if (TryGetInt(query, "bookId", out var bookId) && TryGetInt(query, "chapter", out var chapter))
+                _pendingNavigation = (bookId, chapter, TryGetInt(query, "verse", out var verse) ? verse : null);
+        }
+
+        private async Task InitializeAsync()
         {
             var books = await _bibleService.GetBooksAsync();
-            _allBooks.Clear();
-            foreach (var b in books) _allBooks.Add(b);
-
-            FilterBooks();
-
             var setting = await _userService.GetUserSettingAsync();
-
             var translations = await _bibleService.GetTranslationsAsync();
+
+            _books.Clear();
+            OldTestamentBooks.Clear();
+            NewTestamentBooks.Clear();
+            foreach (var book in books.OrderBy(b => b.Order))
+            {
+                var item = new BookNavItem(book);
+                _books.Add(item);
+                (book.Testament == "NT" ? NewTestamentBooks : OldTestamentBooks).Add(item);
+            }
+
             Translations.Clear();
             foreach (var t in translations) Translations.Add(t);
-
-            // Set the backing field so the chapter is loaded once, below, not per property change.
             _selectedTranslation = Translations.FirstOrDefault(t => t.Id == setting?.LastTranslationId) ?? Translations.FirstOrDefault();
             OnPropertyChanged(nameof(SelectedTranslation));
 
             if (setting != null)
             {
-                FontScale = setting.FontScale;
-                SelectedBook = _allBooks.FirstOrDefault(x => x.Id == setting.LastBookId) ?? _allBooks.FirstOrDefault();
-                SelectedChapter = setting.LastChapterNumber > 0 ? setting.LastChapterNumber : 1;
-                IsDarkMode = setting.Theme == Domain.Enums.ThemePreference.Dark;
+                ReadingFontSize = Math.Clamp(Math.Round(BaseFontSize * setting.FontScale), MinFontSize, MaxFontSize);
+                _isDarkMode = setting.Theme == Domain.Enums.ThemePreference.Dark;
+                OnPropertyChanged(nameof(IsDarkMode));
+                OnPropertyChanged(nameof(ThemeGlyph));
             }
-            else
-            {
-                SelectedBook = _allBooks.FirstOrDefault();
-                SelectedChapter = 1;
-            }
+            ThemeManager.Apply(IsDarkMode);
 
-            ApplyTheme(IsDarkMode);
+            _initialized = true;
 
-            if (SelectedBook != null)
-            {
-                await LoadChaptersAsync(SelectedBook.Id);
-                await LoadChapterAsync();
-            }
+            var startBook = _books.FirstOrDefault(b => b.Book.Id == setting?.LastBookId) ?? _books.FirstOrDefault();
+            if (startBook != null)
+                await NavigateToAsync(startBook.Book.Id, Math.Max(1, setting?.LastChapterNumber ?? 1));
         }
 
-        private void FilterBooks()
+        /// <summary>Shows a chapter, optionally scrolling to and marking a verse.</summary>
+        public async Task NavigateToAsync(int bookId, int chapter, int? verse = null)
         {
-            FilteredBooks.Clear();
-            foreach (var book in _allBooks.Where(b => b.Name.Contains(BookSearchQuery ?? string.Empty, StringComparison.OrdinalIgnoreCase)))
-                FilteredBooks.Add(book);
-        }
+            if (!_initialized || SelectedTranslation == null) return;
 
-        private void FilterChapters()
-        {
-            FilteredChapters.Clear();
-            foreach (var c in _allChapters.Where(c => c.ToString().Contains(ChapterSearchQuery ?? string.Empty)))
-                FilteredChapters.Add(c);
-        }
-
-        public async Task LoadChaptersAsync(int bookId)
-        {
-            _allChapters.Clear();
-            var chapters = await _bibleService.GetChaptersForBookAsync(bookId);
-            foreach (var c in chapters) _allChapters.Add(c.Number);
-
-            FilterChapters();
-        }
-
-        public async Task LoadChapterAsync()
-        {
-            if (SelectedBook == null || SelectedTranslation == null) return;
-            var verses = await _bibleService.GetChapterVersesAsync(SelectedBook.Id, SelectedChapter, SelectedTranslation.Id);
-            Verses.Clear();
-            foreach (var v in verses) Verses.Add(v);
-
-            await SaveSettingsAsync();
-        }
-
-        private async Task SaveSettingsAsync()
-        {
+            await _loadLock.WaitAsync();
             try
             {
-                var setting = new UserSetting(0, SelectedBook?.Id ?? 0, SelectedChapter, FontScale,
-                    IsDarkMode ? Domain.Enums.ThemePreference.Dark : Domain.Enums.ThemePreference.Light,
-                    SelectedTranslation?.Id ?? 1);
-                await _userService.SaveUserSettingAsync(setting);
+                var book = _books.FirstOrDefault(b => b.Book.Id == bookId);
+                if (book == null) return;
+
+                if (book != _currentBook || book.Chapters.Count == 0)
+                {
+                    var chapters = await _bibleService.GetChaptersForBookAsync(bookId);
+                    book.Chapters.Clear();
+                    foreach (var c in chapters) book.Chapters.Add(new ChapterNavItem(c.Number));
+
+                    if (_currentBook != null && _currentBook != book)
+                    {
+                        _currentBook.IsSelected = false;
+                        _currentBook.Chapters.Clear();
+                    }
+                    _currentBook = book;
+                    book.IsSelected = true;
+                }
+
+                chapter = Math.Clamp(chapter, 1, Math.Max(1, book.Chapters.Count));
+                CurrentChapter = chapter;
+                foreach (var c in book.Chapters) c.IsCurrent = c.Number == chapter;
+
+                var verses = await _bibleService.GetChapterVersesAsync(bookId, chapter, SelectedTranslation.Id);
+                Verses.Clear();
+                var targetIndex = -1;
+                foreach (var v in verses)
+                {
+                    var item = new VerseItem(v) { IsTarget = v.VerseNumber == verse };
+                    if (item.IsTarget) targetIndex = Verses.Count;
+                    Verses.Add(item);
+                }
+
+                OnPropertyChanged(nameof(LocationLabel));
+                OnPropertyChanged(nameof(ChapterTitle));
+                OnPropertyChanged(nameof(TestamentLabel));
+                UpdateNeighbourLabels();
+                ScrollRequested?.Invoke(this, targetIndex);
             }
-            catch { }
+            finally
+            {
+                _loadLock.Release();
+            }
+
+            QueueSaveSettings();
         }
 
-        private void ApplyTheme(bool dark)
+        private Task SelectBookAsync(BookNavItem? item)
         {
-            try
-            {
-                Microsoft.Maui.Controls.Application.Current.UserAppTheme = dark ? AppTheme.Dark : AppTheme.Light;
-
-                var resources = Microsoft.Maui.Controls.Application.Current.Resources;
-                if (resources.ContainsKey(dark ? "DarkBackground" : "LightBackground"))
-                    resources["PageBackgroundColor"] = resources[dark ? "DarkBackground" : "LightBackground"];
-                if (resources.ContainsKey(dark ? "DarkText" : "LightText"))
-                    resources["PageTextColor"] = resources[dark ? "DarkText" : "LightText"];
-            }
-            catch { }
+            if (item == null) return Task.CompletedTask;
+            return item == _currentBook ? Task.CompletedTask : NavigateToAsync(item.Book.Id, 1);
         }
 
         private async Task GoToNextChapterAsync()
         {
-            if (SelectedBook == null || _allChapters.Count == 0) return;
+            if (_currentBook == null) return;
+            if (CurrentChapter < _currentBook.Chapters.Count)
+            {
+                await NavigateToAsync(CurrentBookId, CurrentChapter + 1);
+                return;
+            }
 
-            int index = _allChapters.IndexOf(SelectedChapter);
-            if (index < _allChapters.Count - 1)
-            {
-                SelectedChapter = _allChapters[index + 1];
-            }
-            else
-            {
-                // Move to next book if exists
-                int bookIndex = _allBooks.IndexOf(SelectedBook);
-                if (bookIndex < _allBooks.Count - 1)
-                {
-                    SelectedBook = _allBooks[bookIndex + 1];
-                    await LoadChaptersAsync(SelectedBook.Id);
-                    SelectedChapter = _allChapters.FirstOrDefault();
-                }
-            }
+            var next = Neighbour(+1);
+            if (next != null) await NavigateToAsync(next.Book.Id, 1);
         }
 
         private async Task GoToPreviousChapterAsync()
         {
-            if (SelectedBook == null || _allChapters.Count == 0) return;
-
-            int index = _allChapters.IndexOf(SelectedChapter);
-            if (index > 0)
+            if (_currentBook == null) return;
+            if (CurrentChapter > 1)
             {
-                SelectedChapter = _allChapters[index - 1];
+                await NavigateToAsync(CurrentBookId, CurrentChapter - 1);
+                return;
             }
-            else
+
+            var previous = Neighbour(-1);
+            if (previous != null) await NavigateToAsync(previous.Book.Id, int.MaxValue); // clamped to its last chapter
+        }
+
+        private BookNavItem? Neighbour(int offset)
+        {
+            var index = _currentBook == null ? -1 : _books.IndexOf(_currentBook) + offset;
+            return index >= 0 && index < _books.Count ? _books[index] : null;
+        }
+
+        private void UpdateNeighbourLabels()
+        {
+            if (_currentBook == null) return;
+
+            var previous = CurrentChapter > 1 ? $"{ChapterWord(_currentBook)} {CurrentChapter - 1}"
+                : Neighbour(-1)?.DisplayName;
+            var next = CurrentChapter < _currentBook.Chapters.Count ? $"{ChapterWord(_currentBook)} {CurrentChapter + 1}"
+                : Neighbour(+1)?.DisplayName;
+
+            PreviousLabel = previous == null ? "" : $"←  {previous}";
+            NextLabel = next == null ? "" : $"{next}  →";
+        }
+
+        // "Psalms 23" reads as "Psalm 23".
+        private static string ChapterWord(BookNavItem book) => book.Book.Name == "Psalms" ? "Psalm" : book.DisplayName;
+
+        // ---- Search / jump -----------------------------------------------------------------
+
+        private async Task SubmitSearchAsync()
+        {
+            var text = SearchText?.Trim();
+            if (string.IsNullOrEmpty(text)) return;
+
+            var reference = ReferenceParser.Parse(text, _books.Select(b => b.Book));
+            if (reference != null)
             {
-                int bookIndex = _allBooks.IndexOf(SelectedBook);
-                if (bookIndex > 0)
+                SearchText = string.Empty;
+                await NavigateToAsync(reference.Book.Id, reference.Chapter, reference.Verse);
+                return;
+            }
+
+            await Shell.Current.GoToAsync($"{nameof(SearchPage)}?q={Uri.EscapeDataString(text)}");
+        }
+
+        // ---- Settings ----------------------------------------------------------------------
+
+        private void SetFontSize(double size)
+        {
+            ReadingFontSize = Math.Round(Math.Clamp(size, MinFontSize, MaxFontSize));
+            QueueSaveSettings();
+        }
+
+        // Font size and navigation change quickly; write settings once things settle.
+        private void QueueSaveSettings()
+        {
+            if (!_initialized) return;
+
+            _saveDebounce?.Cancel();
+            var cts = _saveDebounce = new CancellationTokenSource();
+            _ = Task.Delay(600, cts.Token).ContinueWith(async _ =>
+            {
+                await _loadLock.WaitAsync();
+                try
                 {
-                    SelectedBook = _allBooks[bookIndex - 1];
-                    await LoadChaptersAsync(SelectedBook.Id);
-                    SelectedChapter = _allChapters.LastOrDefault();
+                    var setting = new UserSetting(0, CurrentBookId, CurrentChapter, ReadingFontSize / BaseFontSize,
+                        IsDarkMode ? Domain.Enums.ThemePreference.Dark : Domain.Enums.ThemePreference.Light,
+                        SelectedTranslation?.Id ?? 1);
+                    await _userService.SaveUserSettingAsync(setting);
                 }
-            }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Saving settings failed: {ex}");
+                }
+                finally
+                {
+                    _loadLock.Release();
+                }
+            }, cts.Token, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
         }
 
-        // MANUAL SELECTION METHODS
-        public void SelectBookFromDropdown(BookDto book)
+        // ---- Helpers -----------------------------------------------------------------------
+
+        private static bool TryGetInt(IDictionary<string, object> query, string key, out int value)
         {
-            if (book == null) return;
-
-            // Always set the SelectedBook to the instance from _allBooks
-            var actualBook = _allBooks.FirstOrDefault(b => b.Id == book.Id);
-            if (actualBook != null)
-            {
-                SelectedBook = actualBook;      // triggers LoadChaptersAsync
-                BookSearchQuery = actualBook.Name;
-                HideBookDropdown();
-            }
+            value = 0;
+            return query.TryGetValue(key, out var raw) && int.TryParse(raw?.ToString(), out value);
         }
 
-        public void SelectChapterFromDropdown(int chapter)
+        public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+        private void OnPropertyChanged(string name) => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(name));
+
+        private bool SetField<T>(ref T field, T value, [System.Runtime.CompilerServices.CallerMemberName] string name = "")
         {
-            SelectedChapter = chapter;
-            ChapterSearchQuery = chapter.ToString();
-            HideChapterDropdown();
+            if (EqualityComparer<T>.Default.Equals(field, value)) return false;
+            field = value;
+            OnPropertyChanged(name);
+            return true;
         }
-
-        // ENTER KEY COMMANDS
-        public async Task ConfirmBookSelectionAsync()
-        {
-            if (!string.IsNullOrWhiteSpace(BookSearchQuery))
-            {
-                var book = _allBooks.FirstOrDefault(b => b.Name.Equals(BookSearchQuery, StringComparison.OrdinalIgnoreCase));
-                if (book != null) SelectedBook = book;
-                await LoadChaptersAsync(SelectedBook?.Id ?? 0);
-                SelectedChapter = FilteredChapters.FirstOrDefault();
-                await LoadChapterAsync();
-                HideBookDropdown();
-            }
-        }
-
-        public async Task ConfirmChapterSelectionAsync()
-        {
-            if (int.TryParse(ChapterSearchQuery, out int chapter) && FilteredChapters.Contains(chapter))
-            {
-                SelectedChapter = chapter;
-                await LoadChapterAsync();
-                HideChapterDropdown();
-            }
-        }
-
-        // Show all items on focus
-        public void ShowBookDropdown() => IsBookDropdownVisible = true;
-        public void ShowChapterDropdown() => IsChapterDropdownVisible = true;
-
-        // Hide dropdown after selection
-        public void HideBookDropdown() => IsBookDropdownVisible = false;
-        public void HideChapterDropdown() => IsChapterDropdownVisible = false;
     }
 }

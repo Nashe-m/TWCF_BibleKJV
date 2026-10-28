@@ -10,7 +10,7 @@ using CommunityToolkit.Mvvm.Input;
 
 namespace TWCF_BibleApp.Presentation.ViewModels
 {
-    public class SearchViewModel : INotifyPropertyChanged
+    public class SearchViewModel : INotifyPropertyChanged, IQueryAttributable
     {
         private readonly IBibleRepository _repository;
         private readonly UserService _userService;
@@ -19,7 +19,27 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         private void OnPropertyChanged([CallerMemberName] string? name = null)
             => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 
-        public string SearchQuery { get; set; } = string.Empty;
+        private string _searchQuery = string.Empty;
+        public string SearchQuery
+        {
+            get => _searchQuery;
+            set
+            {
+                if (_searchQuery == value) return;
+                _searchQuery = value;
+                OnPropertyChanged();
+            }
+        }
+
+        // The reader's search box opens this page with ?q=<text>.
+        public void ApplyQueryAttributes(IDictionary<string, object> query)
+        {
+            if (query.TryGetValue("q", out var q) && q?.ToString() is { Length: > 0 } text)
+            {
+                SearchQuery = Uri.UnescapeDataString(text);
+                PerformSearchCommand.Execute(null);
+            }
+        }
 
         public ObservableCollection<SearchResultDto> SearchResults { get; } = new();
 

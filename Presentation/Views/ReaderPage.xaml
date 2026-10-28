@@ -1,136 +1,337 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<ContentPage 
+<ContentPage
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:TWCF_BibleApp.Presentation.ViewModels"
+    xmlns:dto="clr-namespace:TWCF_BibleApp.Application.DTOs"
     x:Class="TWCF_BibleApp.Presentation.Views.ReaderPage"
+    x:Name="Root"
+    x:DataType="vm:ReaderViewModel"
+    Shell.NavBarIsVisible="False"
     BackgroundColor="{DynamicResource PageBackgroundColor}">
 
-    <Grid RowDefinitions="Auto,*,Auto,Auto" Padding="20">
+    <ContentPage.Resources>
+        <!-- Sidebar book row -->
+        <DataTemplate x:Key="BookTemplate" x:DataType="vm:BookNavItem">
+            <VerticalStackLayout Spacing="6">
+                <Border StrokeThickness="0"
+                        Padding="14,9"
+                        StrokeShape="RoundRectangle 8"
+                        BackgroundColor="Transparent">
+                    <Border.Triggers>
+                        <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{DynamicResource AccentSoftColor}" />
+                        </DataTrigger>
+                    </Border.Triggers>
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding SelectBookCommand, Source={RelativeSource AncestorType={x:Type vm:ReaderViewModel}}, x:DataType=vm:ReaderViewModel}"
+                                              CommandParameter="{Binding .}" />
+                    </Border.GestureRecognizers>
+                    <Label Text="{Binding DisplayName}" FontSize="15">
+                        <Label.Triggers>
+                            <DataTrigger TargetType="Label" Binding="{Binding IsSelected}" Value="True">
+                                <Setter Property="TextColor" Value="{DynamicResource AccentColor}" />
+                                <Setter Property="FontAttributes" Value="Bold" />
+                            </DataTrigger>
+                        </Label.Triggers>
+                    </Label>
+                </Border>
 
-        <!--TOP BAR -->
-        <HorizontalStackLayout Grid.Row="0" Spacing="12">
-
-            <!--BOOK SEARCHABLE PICKER -->
-            <VerticalStackLayout>
-                <Entry Placeholder="Book"
-                       Text="{Binding BookSearchQuery, Mode=TwoWay}"
-                       WidthRequest="220"
-                       Focused="BookEntry_Focused"
-                       Completed="BookEntry_Completed"/>
-
-                <CollectionView ItemsSource="{Binding FilteredBooks}"
-                                SelectionMode="Single"
-                                SelectionChanged="BookCollection_SelectionChanged"
-                                HeightRequest="120"
-                                IsVisible="{Binding IsBookDropdownVisible}">
-                    <CollectionView.ItemTemplate>
-                        <DataTemplate>
-                            <Label Text="{Binding Name}" Padding="4"/>
+                <!-- Chapter grid for the selected book -->
+                <FlexLayout IsVisible="{Binding IsSelected}"
+                            Wrap="Wrap"
+                            Direction="Row"
+                            JustifyContent="Start"
+                            AlignContent="Start"
+                            Margin="6,0,0,8"
+                            BindableLayout.ItemsSource="{Binding Chapters}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ChapterNavItem">
+                            <Border WidthRequest="40"
+                                    HeightRequest="34"
+                                    Margin="0,0,5,5"
+                                    StrokeThickness="0"
+                                    StrokeShape="RoundRectangle 7"
+                                    BackgroundColor="{DynamicResource ChipColor}">
+                                <Border.Triggers>
+                                    <DataTrigger TargetType="Border" Binding="{Binding IsCurrent}" Value="True">
+                                        <Setter Property="BackgroundColor" Value="{DynamicResource AccentColor}" />
+                                    </DataTrigger>
+                                </Border.Triggers>
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding SelectChapterCommand, Source={RelativeSource AncestorType={x:Type vm:ReaderViewModel}}, x:DataType=vm:ReaderViewModel}"
+                                                          CommandParameter="{Binding .}" />
+                                </Border.GestureRecognizers>
+                                <Label Text="{Binding Number}"
+                                       FontSize="13"
+                                       HorizontalOptions="Center"
+                                       VerticalOptions="Center">
+                                    <Label.Triggers>
+                                        <DataTrigger TargetType="Label" Binding="{Binding IsCurrent}" Value="True">
+                                            <Setter Property="TextColor" Value="{DynamicResource AccentTextColor}" />
+                                            <Setter Property="FontAttributes" Value="Bold" />
+                                        </DataTrigger>
+                                    </Label.Triggers>
+                                </Label>
+                            </Border>
                         </DataTemplate>
-                    </CollectionView.ItemTemplate>
-                </CollectionView>
+                    </BindableLayout.ItemTemplate>
+                </FlexLayout>
             </VerticalStackLayout>
+        </DataTemplate>
+    </ContentPage.Resources>
 
-            <!--CHAPTER SEARCHABLE PICKER -->
-            <VerticalStackLayout>
-                <Entry Placeholder="Chapter"
-                       Keyboard="Numeric"
-                       Text="{Binding ChapterSearchQuery, Mode=TwoWay}"
-                       WidthRequest="100"
-                       Focused="ChapterEntry_Focused"
-                       Completed="ChapterEntry_Completed"/>
+    <Grid RowDefinitions="Auto,*">
 
-                <CollectionView x:Name="ChapterCollection"
-                                ItemsSource="{Binding FilteredChapters}"
-                                SelectionMode="Single"
-                                SelectedItem="{Binding SelectedChapter, Mode=TwoWay}"
-                                HeightRequest="120"
-                                IsVisible="{Binding IsChapterDropdownVisible}">
-                    <CollectionView.ItemTemplate>
-                        <DataTemplate>
-                            <Label Text="{Binding .}" Padding="4"/>
-                        </DataTemplate>
-                    </CollectionView.ItemTemplate>
-                </CollectionView>
-            </VerticalStackLayout>
+        <!-- ============ TOP BAR ============ -->
+        <Grid Grid.Row="0"
+              IsVisible="{Binding IsChromeVisible}"
+              BackgroundColor="{DynamicResource SurfaceColor}"
+              Padding="16,12"
+              ColumnDefinitions="Auto,Auto,Auto,*,Auto"
+              ColumnSpacing="10">
 
-            <!--BIBLE VERSION -->
-            <Picker ItemsSource="{Binding Translations}"
-                    ItemDisplayBinding="{Binding DisplayName}"
+            <HorizontalStackLayout Grid.Column="0" Spacing="2">
+                <Button Style="{StaticResource IconButton}" Text="&#xE700;"
+                        Command="{Binding ToggleSidebarCommand}"
+                        ToolTipProperties.Text="Show or hide books (Ctrl+B)" />
+                <Button Style="{StaticResource IconButton}" Text="&#xE76B;"
+                        Command="{Binding PreviousChapterCommand}"
+                        ToolTipProperties.Text="Previous chapter (Left arrow)" />
+                <Button Style="{StaticResource IconButton}" Text="&#xE76C;"
+                        Command="{Binding NextChapterCommand}"
+                        ToolTipProperties.Text="Next chapter (Right arrow)" />
+            </HorizontalStackLayout>
+
+            <Button Grid.Column="1"
+                    Style="{StaticResource OutlineButton}"
+                    Text="{Binding LocationLabel}"
+                    Command="{Binding ToggleSidebarCommand}" />
+
+            <Picker Grid.Column="2"
+                    ItemsSource="{Binding Translations}"
+                    ItemDisplayBinding="{Binding DisplayName, x:DataType=dto:TranslationDto}"
                     SelectedItem="{Binding SelectedTranslation, Mode=TwoWay}"
-                    Title="Version"
-                    WidthRequest="260"
-                    VerticalOptions="Start"/>
+                    WidthRequest="280"
+                    VerticalOptions="Center"
+                    FontSize="15"
+                    TextColor="{DynamicResource PageTextColor}"
+                    BackgroundColor="{DynamicResource SurfaceColor}"
+                    ToolTipProperties.Text="Bible version" />
 
-            <Button Text="🔍 Search"
-                    Command="{Binding GoToSearchCommand}"
-                    WidthRequest="100"
-                    HeightRequest="40"
-                    VerticalOptions="Center"/>
+            <!-- Search / jump to reference -->
+            <Border Grid.Column="3"
+                    MaximumWidthRequest="560"
+                    HeightRequest="42"
+                    Padding="14,0,8,0"
+                    StrokeThickness="1"
+                    Stroke="{DynamicResource BorderColor}"
+                    StrokeShape="RoundRectangle 10"
+                    BackgroundColor="{DynamicResource ChipColor}">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                    <Label Text="&#xE721;"
+                           FontFamily="{StaticResource IconFont}"
+                           FontSize="15"
+                           TextColor="{DynamicResource MutedTextColor}"
+                           VerticalOptions="Center" />
+                    <Entry x:Name="SearchEntry"
+                           Grid.Column="1"
+                           Text="{Binding SearchText, Mode=TwoWay}"
+                           Placeholder="Search or go to (e.g. Jn 3:16)"
+                           PlaceholderColor="{DynamicResource MutedTextColor}"
+                           TextColor="{DynamicResource PageTextColor}"
+                           BackgroundColor="Transparent"
+                           FontSize="15"
+                           ReturnType="Search"
+                           ReturnCommand="{Binding SubmitSearchCommand}"
+                           VerticalOptions="Center" />
+                    <Border Grid.Column="2"
+                            Padding="8,3"
+                            StrokeThickness="1"
+                            Stroke="{DynamicResource BorderColor}"
+                            StrokeShape="RoundRectangle 6"
+                            VerticalOptions="Center">
+                        <Label Text="Ctrl K" FontSize="11" TextColor="{DynamicResource MutedTextColor}" />
+                    </Border>
+                </Grid>
+            </Border>
 
-            <Button Text="A+"
-                    Command="{Binding IncreaseFontCommand}"
-                    WidthRequest="48"
-                    HeightRequest="40"/>
-
-            <Button Text="A-"
-                    Command="{Binding DecreaseFontCommand}"
-                    WidthRequest="48"
-                    HeightRequest="40"/>
-
-            <VerticalStackLayout HorizontalOptions="EndAndExpand">
-                <Label Text="Dark"
-                       FontSize="12"
-                       TextColor="{DynamicResource MutedTextColor}"
-                       HorizontalOptions="End"/>
-                <Switch IsToggled="{Binding IsDarkMode}"
-                        HorizontalOptions="End"/>
-            </VerticalStackLayout>
-
-        </HorizontalStackLayout>
-
-        <!--BIBLE TEXT -->
-        <CollectionView Grid.Row="1"
-                        ItemsSource="{Binding Verses}"
-                        x:Name="VersesView"
-                        SelectionMode="None">
-
-            <CollectionView.ItemTemplate>
-                <DataTemplate>
-                    <VerticalStackLayout Padding="8" Spacing="6">
-
-                        <Label Text="{Binding VerseNumber}"
-                               FontSize="{Binding Source={x:Reference VersesView}, Path=BindingContext.FontScale, Converter={StaticResource MultiplyFontSizeConverter}}"
+            <HorizontalStackLayout Grid.Column="4" Spacing="4">
+                <!-- Font size -->
+                <Border Padding="2"
+                        StrokeThickness="1"
+                        Stroke="{DynamicResource BorderColor}"
+                        StrokeShape="RoundRectangle 10"
+                        BackgroundColor="{DynamicResource SurfaceColor}">
+                    <HorizontalStackLayout>
+                        <Button Style="{StaticResource IconButton}" Text="&#xE8E7;"
+                                Command="{Binding DecreaseFontCommand}"
+                                ToolTipProperties.Text="Smaller text (Ctrl+Minus)" />
+                        <Label Text="{Binding FontSizeLabel}"
+                               WidthRequest="56"
+                               FontSize="13"
                                FontAttributes="Bold"
-                               TextColor="{DynamicResource MutedTextColor}" />
+                               HorizontalTextAlignment="Center"
+                               VerticalOptions="Center">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding ResetFontCommand}" />
+                            </Label.GestureRecognizers>
+                        </Label>
+                        <Button Style="{StaticResource IconButton}" Text="&#xE8E8;"
+                                Command="{Binding IncreaseFontCommand}"
+                                ToolTipProperties.Text="Larger text (Ctrl+Plus)" />
+                    </HorizontalStackLayout>
+                </Border>
 
-                        <Label Text="{Binding Text}"
-                               FontSize="{Binding Source={x:Reference VersesView}, Path=BindingContext.FontScale, Converter={StaticResource MultiplyFontSizeConverter}}"
-                               LineHeight="1.4" />
+                <Button Style="{StaticResource IconButton}"
+                        Text="{Binding ThemeGlyph}"
+                        Command="{Binding ToggleThemeCommand}"
+                        ToolTipProperties.Text="Light / dark (Ctrl+D)" />
 
+                <Button Style="{StaticResource AccentButton}"
+                        Text="Present"
+                        Margin="6,0,0,0"
+                        Command="{Binding ToggleProjectorCommand}"
+                        ToolTipProperties.Text="Full-screen projector view (F5)" />
+            </HorizontalStackLayout>
+
+            <BoxView Grid.ColumnSpan="5"
+                     HeightRequest="1"
+                     Margin="-16,0,-16,-12"
+                     VerticalOptions="End"
+                     Color="{DynamicResource BorderColor}" />
+        </Grid>
+
+        <!-- ============ BODY ============ -->
+        <Grid Grid.Row="1" ColumnDefinitions="Auto,*">
+
+            <!-- Sidebar -->
+            <Grid Grid.Column="0"
+                  WidthRequest="290"
+                  IsVisible="{Binding IsSidebarVisible}"
+                  BackgroundColor="{DynamicResource SurfaceColor}">
+                <ScrollView x:Name="SidebarScroll">
+                    <VerticalStackLayout Padding="16,20" Spacing="2">
+                        <Label Text="OLD TESTAMENT" Style="{StaticResource SectionHeaderLabel}" Margin="12,0,0,8" />
+                        <VerticalStackLayout x:Name="OldTestamentList"
+                                             Spacing="2"
+                                             BindableLayout.ItemsSource="{Binding OldTestamentBooks}"
+                                             BindableLayout.ItemTemplate="{StaticResource BookTemplate}" />
+
+                        <Label Text="NEW TESTAMENT" Style="{StaticResource SectionHeaderLabel}" Margin="12,24,0,8" />
+                        <VerticalStackLayout x:Name="NewTestamentList"
+                                             Spacing="2"
+                                             BindableLayout.ItemsSource="{Binding NewTestamentBooks}"
+                                             BindableLayout.ItemTemplate="{StaticResource BookTemplate}" />
                     </VerticalStackLayout>
-                </DataTemplate>
-            </CollectionView.ItemTemplate>
-        </CollectionView>
+                </ScrollView>
+                <BoxView WidthRequest="1" HorizontalOptions="End" Color="{DynamicResource BorderColor}" />
+            </Grid>
 
-        <!--BOTTOM NAV -->
-        <HorizontalStackLayout Grid.Row="2"
-                               Spacing="20"
-                               HorizontalOptions="Center"
-                               Padding="10">
-            <Button Text="◀ Previous"
-                    Command="{Binding PreviousChapterCommand}" />
-            <Button Text="Next ▶"
-                    Command="{Binding NextChapterCommand}" />
-        </HorizontalStackLayout>
+            <!-- Reading column -->
+            <ScrollView x:Name="ReadingScroll" Grid.Column="1">
+                <VerticalStackLayout Padding="{Binding ReadingPadding}"
+                                     MaximumWidthRequest="{Binding ReadingColumnWidth}"
+                                     HorizontalOptions="Center"
+                                     Spacing="0">
 
-        <!--Attribution required by some licences (e.g. Shona, CC BY-SA) -->
-        <Label Grid.Row="3"
-               Text="{Binding SelectedTranslation.Copyright}"
-               FontSize="11"
-               HorizontalOptions="Center"
-               HorizontalTextAlignment="Center"
-               TextColor="{DynamicResource MutedTextColor}" />
+                    <Label Text="{Binding TestamentLabel}"
+                           Style="{StaticResource SectionHeaderLabel}"
+                           FontSize="13" />
 
+                    <Label Text="{Binding ChapterTitle}"
+                           FontFamily="{StaticResource ScriptureFont}"
+                           FontSize="{Binding ChapterTitleFontSize}"
+                           FontAttributes="Bold"
+                           Margin="0,4,0,24" />
+
+                    <VerticalStackLayout x:Name="VersesLayout"
+                                         Spacing="{Binding VerseSpacing}"
+                                         BindableLayout.ItemsSource="{Binding Verses}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:VerseItem">
+                                <Border StrokeThickness="0"
+                                        Padding="10,4"
+                                        Margin="-10,0"
+                                        StrokeShape="RoundRectangle 8"
+                                        BackgroundColor="Transparent">
+                                    <Border.Triggers>
+                                        <DataTrigger TargetType="Border" Binding="{Binding IsTarget}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{DynamicResource AccentSoftColor}" />
+                                        </DataTrigger>
+                                    </Border.Triggers>
+                                    <Label FontFamily="{StaticResource ScriptureFont}"
+                                           FontSize="{Binding ReadingFontSize, Source={RelativeSource AncestorType={x:Type vm:ReaderViewModel}}, x:DataType=vm:ReaderViewModel}"
+                                           LineHeight="1.45">
+                                        <Label.FormattedText>
+                                            <FormattedString>
+                                                <Span Text="{Binding Number}"
+                                                      FontFamily="{StaticResource UiFont}"
+                                                      FontAttributes="Bold"
+                                                      FontSize="{Binding VerseNumberFontSize, Source={RelativeSource AncestorType={x:Type vm:ReaderViewModel}}, x:DataType=vm:ReaderViewModel}"
+                                                      TextColor="{DynamicResource AccentColor}" />
+                                                <Span Text="  " />
+                                                <Span Text="{Binding Text}"
+                                                      FontFamily="{StaticResource ScriptureFont}"
+                                                      TextColor="{DynamicResource PageTextColor}" />
+                                            </FormattedString>
+                                        </Label.FormattedText>
+                                    </Label>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+
+                    <!-- Previous / next chapter -->
+                    <BoxView HeightRequest="1" Margin="0,48,0,12" Color="{DynamicResource BorderColor}" />
+                    <Grid ColumnDefinitions="*,*" IsVisible="{Binding IsChromeVisible}">
+                        <Button Style="{StaticResource LinkButton}"
+                                Text="{Binding PreviousLabel}"
+                                HorizontalOptions="Start"
+                                Command="{Binding PreviousChapterCommand}" />
+                        <Button Grid.Column="1"
+                                Style="{StaticResource LinkButton}"
+                                Text="{Binding NextLabel}"
+                                HorizontalOptions="End"
+                                Command="{Binding NextChapterCommand}" />
+                    </Grid>
+
+                    <!-- Attribution required by some licences (e.g. Shona, CC BY-SA) -->
+                    <Label Text="{Binding SelectedTranslation.Copyright}"
+                           FontSize="12"
+                           Margin="0,16,0,0"
+                           HorizontalTextAlignment="Center"
+                           TextColor="{DynamicResource MutedTextColor}" />
+                </VerticalStackLayout>
+            </ScrollView>
+
+            <!-- Projector mode controls: faint until hovered so they don't distract -->
+            <Border x:Name="ProjectorControls"
+                    Grid.Column="1"
+                    IsVisible="{Binding IsProjectorMode}"
+                    HorizontalOptions="End"
+                    VerticalOptions="End"
+                    Margin="24"
+                    Padding="6"
+                    Opacity="0.35"
+                    StrokeThickness="1"
+                    Stroke="{DynamicResource BorderColor}"
+                    StrokeShape="RoundRectangle 12"
+                    BackgroundColor="{DynamicResource SurfaceColor}">
+                <Border.GestureRecognizers>
+                    <PointerGestureRecognizer PointerEntered="ProjectorControls_PointerEntered"
+                                              PointerExited="ProjectorControls_PointerExited" />
+                </Border.GestureRecognizers>
+                <HorizontalStackLayout Spacing="2">
+                    <Button Style="{StaticResource IconButton}" Text="&#xE76B;" Command="{Binding PreviousChapterCommand}" ToolTipProperties.Text="Previous chapter" />
+                    <Button Style="{StaticResource IconButton}" Text="&#xE76C;" Command="{Binding NextChapterCommand}" ToolTipProperties.Text="Next chapter" />
+                    <Button Style="{StaticResource IconButton}" Text="&#xE8E7;" Command="{Binding DecreaseFontCommand}" ToolTipProperties.Text="Smaller text" />
+                    <Label Text="{Binding FontSizeLabel}" WidthRequest="56" FontSize="13" HorizontalTextAlignment="Center" VerticalOptions="Center" />
+                    <Button Style="{StaticResource IconButton}" Text="&#xE8E8;" Command="{Binding IncreaseFontCommand}" ToolTipProperties.Text="Larger text" />
+                    <Button Style="{StaticResource IconButton}" Text="{Binding ThemeGlyph}" Command="{Binding ToggleThemeCommand}" ToolTipProperties.Text="Light / dark" />
+                    <Button Style="{StaticResource IconButton}" Text="&#xE73F;" Command="{Binding ExitProjectorCommand}" ToolTipProperties.Text="Exit (Esc)" />
+                </HorizontalStackLayout>
+            </Border>
+        </Grid>
     </Grid>
 </ContentPage>
