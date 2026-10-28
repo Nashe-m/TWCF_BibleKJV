@@ -58,7 +58,7 @@
                         Margin="0,0,10,8"
                         FontSize="14"
                         BackgroundColor="{DynamicResource SurfaceColor}"
-                        ToolTipProperties.Text="Bible version to search" />
+                        ToolTipProperties.Text="Bible version to search" SemanticProperties.Description="Bible version to search" />
 
                 <Border Margin="0,0,10,8" Padding="3" StrokeThickness="1" Stroke="{DynamicResource BorderColor}"
                         StrokeShape="RoundRectangle 10" BackgroundColor="{DynamicResource SurfaceColor}">
@@ -71,7 +71,7 @@
                                 </DataTrigger>
                             </Button.Triggers>
                         </Button>
-                        <Button Text="Old" ToolTipProperties.Text="Old Testament" Style="{StaticResource SegmentButton}" Command="{Binding SetTestamentCommand}" CommandParameter="Old">
+                        <Button Text="Old" ToolTipProperties.Text="Old Testament" SemanticProperties.Description="Old Testament" Style="{StaticResource SegmentButton}" Command="{Binding SetTestamentCommand}" CommandParameter="Old">
                             <Button.Triggers>
                                 <DataTrigger TargetType="Button" Binding="{Binding IsOldTestament}" Value="True">
                                     <Setter Property="BackgroundColor" Value="{DynamicResource AccentSoftColor}" />
@@ -79,7 +79,7 @@
                                 </DataTrigger>
                             </Button.Triggers>
                         </Button>
-                        <Button Text="New" ToolTipProperties.Text="New Testament" Style="{StaticResource SegmentButton}" Command="{Binding SetTestamentCommand}" CommandParameter="New">
+                        <Button Text="New" ToolTipProperties.Text="New Testament" SemanticProperties.Description="New Testament" Style="{StaticResource SegmentButton}" Command="{Binding SetTestamentCommand}" CommandParameter="New">
                             <Button.Triggers>
                                 <DataTrigger TargetType="Button" Binding="{Binding IsNewTestament}" Value="True">
                                     <Setter Property="BackgroundColor" Value="{DynamicResource AccentSoftColor}" />

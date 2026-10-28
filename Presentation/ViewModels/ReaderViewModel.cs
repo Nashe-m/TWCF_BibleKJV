@@ -82,6 +82,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             DeleteNoteCommand = new AsyncRelayCommand(DeleteNoteAsync);
             CloseNoteEditorCommand = new RelayCommand(CloseNoteEditor);
             CloseOverlaysCommand = new RelayCommand(() => CloseOverlays());
+            RetryCommand = new AsyncRelayCommand(RetryAsync);
         }
 
         public IAsyncRelayCommand PreviousChapterCommand { get; }
@@ -112,6 +113,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         public IAsyncRelayCommand DeleteNoteCommand { get; }
         public IRelayCommand CloseNoteEditorCommand { get; }
         public IRelayCommand CloseOverlaysCommand { get; }
+        public IAsyncRelayCommand RetryCommand { get; }
 
         // ---- Current location ------------------------------------------------------------
 
@@ -390,7 +392,10 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         public async Task OnAppearingAsync()
         {
             if (!_initialized)
+            {
                 await InitializeAsync();
+                if (!_initialized) return;  // startup failed; the error panel offers Retry
+            }
 
             // A search result opens in the version that was searched.
             if (_pendingTranslationId is int translationId && Translations.FirstOrDefault(t => t.Id == translationId) is { } translation
@@ -448,11 +453,52 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             }
         }
 
+        // ---- Loading state and errors -------------------------------------------------------
+
+        private bool _isLoading;
+        public bool IsLoading { get => _isLoading; private set => SetField(ref _isLoading, value); }
+
+        private string _loadError = "";
+        public string LoadError
+        {
+            get => _loadError;
+            private set
+            {
+                if (SetField(ref _loadError, value)) OnPropertyChanged(nameof(HasLoadError));
+            }
+        }
+
+        public bool HasLoadError => LoadError.Length > 0;
+
+        // Whatever failed last: starting up, or one chapter.
+        private Func<Task>? _retry;
+
+        private async Task RetryAsync()
+        {
+            if (_retry is { } retry) await retry();
+        }
+
         private async Task InitializeAsync()
         {
-            var books = await _bibleService.GetBooksAsync();
-            await _settings.LoadAsync();
-            var translations = await _bibleService.GetTranslationsAsync();
+            IsLoading = true;
+            LoadError = "";
+            IEnumerable<BookDto> books;
+            IEnumerable<TranslationDto> translations;
+            try
+            {
+                books = await _bibleService.GetBooksAsync();
+                await _settings.LoadAsync();
+                translations = await _bibleService.GetTranslationsAsync();
+            }
+            catch (Exception ex)
+            {
+                // Usually bible_data.db could not be copied out of the app package on first run.
+                System.Diagnostics.Debug.WriteLine($"Opening the Bible failed: {ex}");
+                LoadError = "The Bible text could not be opened. Try again, or reinstall the app if this keeps happening.";
+                _retry = async () => { await InitializeAsync(); if (_initialized) await OnAppearingAsync(); };
+                IsLoading = false;
+                return;
+            }
 
             _books.Clear();
             OldTestamentBooks.Clear();
@@ -478,6 +524,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             var startBook = _books.FirstOrDefault(b => b.Book.Id == _settings.LastBookId) ?? _books.FirstOrDefault();
             if (startBook != null)
                 await NavigateToAsync(startBook.Book.Id, Math.Max(1, _settings.LastChapter));
+            IsLoading = false;
         }
 
         /// <summary>Shows a chapter, optionally scrolling to and marking a verse.</summary>
@@ -495,6 +542,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             {
                 var book = _books.FirstOrDefault(b => b.Book.Id == bookId);
                 if (book == null) return;
+                LoadError = "";
 
                 if (book != _currentBook || book.Chapters.Count == 0)
                 {
@@ -546,6 +594,14 @@ namespace TWCF_BibleApp.Presentation.ViewModels
                 OnPropertyChanged(nameof(TestamentLabel));
                 UpdateNeighbourLabels();
                 ScrollRequested?.Invoke(this, targetIndex);
+            }
+            catch (Exception ex)
+            {
+                // Keep whatever was showing; offer to try this chapter again.
+                System.Diagnostics.Debug.WriteLine($"Loading {bookId} {chapter} failed: {ex}");
+                LoadError = "This chapter could not be loaded.";
+                _retry = () => NavigateToAsync(bookId, chapter, verses);
+                return;
             }
             finally
             {

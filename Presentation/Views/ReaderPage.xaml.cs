@@ -254,6 +254,7 @@ namespace TWCF_BibleApp.Presentation.Views
             AddShortcut(element, Windows.System.VirtualKey.F5, none, () => _vm.ToggleProjectorCommand.Execute(null));
             AddShortcut(element, Windows.System.VirtualKey.F11, none, () => _vm.ToggleProjectorCommand.Execute(null));
             AddShortcut(element, Windows.System.VirtualKey.Escape, none, OnEscape);
+            AddShortcut(element, Windows.System.VirtualKey.F1, none, ShowShortcuts);
             AddShortcut(element, Windows.System.VirtualKey.C, ctrl, () => _vm.CopySelectionCommand.Execute(null), skipWhenTyping: true);
 
             // Chapter navigation, except while typing in a text box.
@@ -285,6 +286,13 @@ namespace TWCF_BibleApp.Presentation.Views
                 action();
             };
             element.KeyboardAccelerators.Add(accelerator);
+        }
+
+        private void ShowShortcuts()
+        {
+            if (_vm.IsProjectorMode) return;
+            SettingsPage.ScrollToShortcutsOnAppearing = true;
+            _ = Shell.Current.GoToAsync("//settings");
         }
 
         private void FocusSearch()

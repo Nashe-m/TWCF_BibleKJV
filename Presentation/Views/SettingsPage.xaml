@@ -9,7 +9,7 @@
     Title="Settings">
 
     <!-- Changes apply at once and are saved automatically. -->
-    <ScrollView>
+    <ScrollView x:Name="PageScroll">
         <VerticalStackLayout Padding="32,28,32,48" Spacing="24" MaximumWidthRequest="900">
             <Label Text="Settings" Style="{StaticResource PageTitleLabel}" />
 
@@ -62,14 +62,14 @@
                             <Label Text="Tap the size to go back to 28 pt. Ctrl + mouse wheel also works in the reader." FontSize="13" TextColor="{DynamicResource MutedTextColor}" />
                         </VerticalStackLayout>
                         <Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="4" HorizontalOptions="Start">
-                            <Button Style="{StaticResource IconButton}" Text="&#xE8E7;" Command="{Binding DecreaseFontCommand}" ToolTipProperties.Text="Smaller" />
+                            <Button Style="{StaticResource IconButton}" Text="&#xE8E7;" Command="{Binding DecreaseFontCommand}" ToolTipProperties.Text="Smaller" SemanticProperties.Description="Smaller" />
                             <Label Grid.Column="1" Text="{Binding FontSizeLabel}" WidthRequest="64" FontSize="15" FontAttributes="Bold"
                                    HorizontalTextAlignment="Center" VerticalOptions="Center">
                                 <Label.GestureRecognizers>
                                     <TapGestureRecognizer Command="{Binding ResetFontCommand}" />
                                 </Label.GestureRecognizers>
                             </Label>
-                            <Button Grid.Column="2" Style="{StaticResource IconButton}" Text="&#xE8E8;" Command="{Binding IncreaseFontCommand}" ToolTipProperties.Text="Larger" />
+                            <Button Grid.Column="2" Style="{StaticResource IconButton}" Text="&#xE8E8;" Command="{Binding IncreaseFontCommand}" ToolTipProperties.Text="Larger" SemanticProperties.Description="Larger" />
                         </Grid>
                         <!-- Preview in the reading font, spacing and colours -->
                         <Border Padding="16,12" StrokeThickness="0" StrokeShape="RoundRectangle 10" BackgroundColor="{DynamicResource PageBackgroundColor}">
@@ -257,6 +257,110 @@
                             <Label Text="Shade a verse opened from search or a reference." FontSize="13" TextColor="{DynamicResource MutedTextColor}" />
                         </VerticalStackLayout>
                         <Switch Grid.Column="1" IsToggled="{Binding Settings.MarkJumpWhenProjecting}" OnColor="{DynamicResource AccentColor}" VerticalOptions="Center" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Windows only: phones have no keyboard shortcuts -->
+            <Border x:Name="ShortcutsCard"
+                    IsVisible="{Binding ShowsKeyboardShortcuts}"
+                    Padding="20"
+                    StrokeThickness="1"
+                    Stroke="{DynamicResource BorderColor}"
+                    StrokeShape="RoundRectangle 12"
+                    BackgroundColor="{DynamicResource SurfaceColor}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="KEYBOARD SHORTCUTS" Style="{StaticResource SectionHeaderLabel}" Margin="0,0,0,6" />
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                        <Label Text="Next / previous chapter" FontSize="14" VerticalOptions="Center" />
+                        <Border Grid.Column="1" Padding="8,3" StrokeThickness="1" Stroke="{DynamicResource BorderColor}"
+                                StrokeShape="RoundRectangle 6" BackgroundColor="{DynamicResource PageBackgroundColor}">
+                            <Label Text="→  /  ←" FontSize="13" FontAttributes="Bold" />
+                        </Border>
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                        <Label Text="Present on the projector" FontSize="14" VerticalOptions="Center" />
+                        <Border Grid.Column="1" Padding="8,3" StrokeThickness="1" Stroke="{DynamicResource BorderColor}"
+                                StrokeShape="RoundRectangle 6" BackgroundColor="{DynamicResource PageBackgroundColor}">
+                            <Label Text="F5 or F11" FontSize="13" FontAttributes="Bold" />
+                        </Border>
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                        <Label Text="Close a menu, clear selection, leave projector" FontSize="14" VerticalOptions="Center" />
+                        <Border Grid.Column="1" Padding="8,3" StrokeThickness="1" Stroke="{DynamicResource BorderColor}"
+                                StrokeShape="RoundRectangle 6" BackgroundColor="{DynamicResource PageBackgroundColor}">
+                            <Label Text="Esc" FontSize="13" FontAttributes="Bold" />
+                        </Border>
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                        <Label Text="Search or go to a reference" FontSize="14" VerticalOptions="Center" />
+                        <Border Grid.Column="1" Padding="8,3" StrokeThickness="1" Stroke="{DynamicResource BorderColor}"
+                                StrokeShape="RoundRectangle 6" BackgroundColor="{DynamicResource PageBackgroundColor}">
+                            <Label Text="Ctrl + K" FontSize="13" FontAttributes="Bold" />
+                        </Border>
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                        <Label Text="Larger / smaller text" FontSize="14" VerticalOptions="Center" />
+                        <Border Grid.Column="1" Padding="8,3" StrokeThickness="1" Stroke="{DynamicResource BorderColor}"
+                                StrokeShape="RoundRectangle 6" BackgroundColor="{DynamicResource PageBackgroundColor}">
+                            <Label Text="Ctrl + Plus  /  Ctrl + Minus" FontSize="13" FontAttributes="Bold" />
+                        </Border>
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                        <Label Text="Text size back to 28 pt" FontSize="14" VerticalOptions="Center" />
+                        <Border Grid.Column="1" Padding="8,3" StrokeThickness="1" Stroke="{DynamicResource BorderColor}"
+                                StrokeShape="RoundRectangle 6" BackgroundColor="{DynamicResource PageBackgroundColor}">
+                            <Label Text="Ctrl + 0" FontSize="13" FontAttributes="Bold" />
+                        </Border>
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                        <Label Text="Zoom the text" FontSize="14" VerticalOptions="Center" />
+                        <Border Grid.Column="1" Padding="8,3" StrokeThickness="1" Stroke="{DynamicResource BorderColor}"
+                                StrokeShape="RoundRectangle 6" BackgroundColor="{DynamicResource PageBackgroundColor}">
+                            <Label Text="Ctrl + mouse wheel" FontSize="13" FontAttributes="Bold" />
+                        </Border>
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                        <Label Text="Show or hide the book list" FontSize="14" VerticalOptions="Center" />
+                        <Border Grid.Column="1" Padding="8,3" StrokeThickness="1" Stroke="{DynamicResource BorderColor}"
+                                StrokeShape="RoundRectangle 6" BackgroundColor="{DynamicResource PageBackgroundColor}">
+                            <Label Text="Ctrl + B" FontSize="13" FontAttributes="Bold" />
+                        </Border>
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                        <Label Text="Light / dark" FontSize="14" VerticalOptions="Center" />
+                        <Border Grid.Column="1" Padding="8,3" StrokeThickness="1" Stroke="{DynamicResource BorderColor}"
+                                StrokeShape="RoundRectangle 6" BackgroundColor="{DynamicResource PageBackgroundColor}">
+                            <Label Text="Ctrl + D" FontSize="13" FontAttributes="Bold" />
+                        </Border>
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                        <Label Text="Red letter on / off" FontSize="14" VerticalOptions="Center" />
+                        <Border Grid.Column="1" Padding="8,3" StrokeThickness="1" Stroke="{DynamicResource BorderColor}"
+                                StrokeShape="RoundRectangle 6" BackgroundColor="{DynamicResource PageBackgroundColor}">
+                            <Label Text="Ctrl + R" FontSize="13" FontAttributes="Bold" />
+                        </Border>
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                        <Label Text="Select several verses" FontSize="14" VerticalOptions="Center" />
+                        <Border Grid.Column="1" Padding="8,3" StrokeThickness="1" Stroke="{DynamicResource BorderColor}"
+                                StrokeShape="RoundRectangle 6" BackgroundColor="{DynamicResource PageBackgroundColor}">
+                            <Label Text="Shift + click" FontSize="13" FontAttributes="Bold" />
+                        </Border>
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                        <Label Text="Copy selected verses" FontSize="14" VerticalOptions="Center" />
+                        <Border Grid.Column="1" Padding="8,3" StrokeThickness="1" Stroke="{DynamicResource BorderColor}"
+                                StrokeShape="RoundRectangle 6" BackgroundColor="{DynamicResource PageBackgroundColor}">
+                            <Label Text="Ctrl + C" FontSize="13" FontAttributes="Bold" />
+                        </Border>
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                        <Label Text="This list" FontSize="14" VerticalOptions="Center" />
+                        <Border Grid.Column="1" Padding="8,3" StrokeThickness="1" Stroke="{DynamicResource BorderColor}"
+                                StrokeShape="RoundRectangle 6" BackgroundColor="{DynamicResource PageBackgroundColor}">
+                            <Label Text="F1" FontSize="13" FontAttributes="Bold" />
+                        </Border>
                     </Grid>
                 </VerticalStackLayout>
             </Border>

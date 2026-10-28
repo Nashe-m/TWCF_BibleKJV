@@ -98,15 +98,15 @@
             <HorizontalStackLayout Grid.Column="0" Spacing="2">
                 <Button Style="{StaticResource IconButton}" Text="&#xE700;"
                         Command="{Binding ToggleSidebarCommand}"
-                        ToolTipProperties.Text="Show or hide books (Ctrl+B)" />
+                        ToolTipProperties.Text="Show or hide books (Ctrl+B)" SemanticProperties.Description="Show or hide books" />
                 <Button Style="{StaticResource IconButton}" Text="&#xE76B;"
                         IsVisible="{Binding IsFullToolbar}"
                         Command="{Binding PreviousChapterCommand}"
-                        ToolTipProperties.Text="Previous chapter (Left arrow)" />
+                        ToolTipProperties.Text="Previous chapter (Left arrow)" SemanticProperties.Description="Previous chapter" />
                 <Button Style="{StaticResource IconButton}" Text="&#xE76C;"
                         IsVisible="{Binding IsFullToolbar}"
                         Command="{Binding NextChapterCommand}"
-                        ToolTipProperties.Text="Next chapter (Right arrow)" />
+                        ToolTipProperties.Text="Next chapter (Right arrow)" SemanticProperties.Description="Next chapter" />
             </HorizontalStackLayout>
 
             <Button Grid.Column="1"
@@ -124,7 +124,7 @@
                     FontSize="15"
                     TextColor="{DynamicResource PageTextColor}"
                     BackgroundColor="{DynamicResource SurfaceColor}"
-                    ToolTipProperties.Text="Bible version" />
+                    ToolTipProperties.Text="Bible version" SemanticProperties.Description="Bible version" />
 
             <!-- Search / jump to reference -->
             <Border x:Name="SearchBox"
@@ -177,7 +177,7 @@
                     <HorizontalStackLayout>
                         <Button Style="{StaticResource IconButton}" Text="&#xE8E7;"
                                 Command="{Binding DecreaseFontCommand}"
-                                ToolTipProperties.Text="Smaller text (Ctrl+Minus)" />
+                                ToolTipProperties.Text="Smaller text (Ctrl+Minus)" SemanticProperties.Description="Smaller text" />
                         <Label Text="{Binding FontSizeLabel}"
                                WidthRequest="56"
                                FontSize="13"
@@ -190,7 +190,7 @@
                         </Label>
                         <Button Style="{StaticResource IconButton}" Text="&#xE8E8;"
                                 Command="{Binding IncreaseFontCommand}"
-                                ToolTipProperties.Text="Larger text (Ctrl+Plus)" />
+                                ToolTipProperties.Text="Larger text (Ctrl+Plus)" SemanticProperties.Description="Larger text" />
                     </HorizontalStackLayout>
                 </Border>
 
@@ -204,7 +204,7 @@
                         TextColor="{DynamicResource MutedTextColor}"
                         IsEnabled="{Binding HasWordsOfJesus}"
                         Command="{Binding ToggleWordsOfJesusCommand}"
-                        ToolTipProperties.Text="Words of Jesus in red (Ctrl+R). Available in KJV and WEB.">
+                        ToolTipProperties.Text="Words of Jesus in red (Ctrl+R). Available in KJV and WEB." SemanticProperties.Description="Words of Jesus in red (Ctrl+R). Available in KJV and WEB.">
                     <Button.Triggers>
                         <DataTrigger TargetType="Button" Binding="{Binding ShowWordsOfJesus}" Value="True">
                             <Setter Property="TextColor" Value="{DynamicResource WordsOfJesusColor}" />
@@ -219,7 +219,7 @@
                         IsVisible="{Binding IsInlineDisplayControlsVisible}"
                         Text="{Binding ThemeGlyph}"
                         Command="{Binding ToggleThemeCommand}"
-                        ToolTipProperties.Text="Light / dark (Ctrl+D)" />
+                        ToolTipProperties.Text="Light / dark (Ctrl+D)" SemanticProperties.Description="Light / dark" />
 
                 <!-- On smaller screens text size, red letter and theme live in this menu -->
                 <Button Style="{StaticResource OutlineButton}"
@@ -229,14 +229,14 @@
                         FontSize="17"
                         Padding="12,0"
                         Command="{Binding ToggleDisplayMenuCommand}"
-                        ToolTipProperties.Text="Text size, red letter and theme" />
+                        ToolTipProperties.Text="Text size, red letter and theme" SemanticProperties.Description="Text size, red letter and theme" />
 
                 <Button Style="{StaticResource AccentButton}"
                         IsVisible="{Binding IsFullToolbar}"
                         Text="Present"
                         Margin="6,0,0,0"
                         Command="{Binding ToggleProjectorCommand}"
-                        ToolTipProperties.Text="Full-screen projector view (F5)" />
+                        ToolTipProperties.Text="Full-screen projector view (F5)" SemanticProperties.Description="Full-screen projector view" />
             </HorizontalStackLayout>
 
             <BoxView Grid.ColumnSpan="5"
@@ -353,7 +353,7 @@
                                                 Margin="8,2,0,0"
                                                 Command="{Binding OpenNoteCommand, Source={RelativeSource AncestorType={x:Type vm:ReaderViewModel}}, x:DataType=vm:ReaderViewModel}"
                                                 CommandParameter="{Binding .}"
-                                                ToolTipProperties.Text="Open note" />
+                                                ToolTipProperties.Text="Open note" SemanticProperties.Description="Open note" />
                                     </Grid>
                                 </Border>
                             </DataTemplate>
@@ -383,6 +383,41 @@
                 </VerticalStackLayout>
             </ScrollView>
 
+            <!-- ============ LOADING / ERROR ============ -->
+            <ActivityIndicator Grid.Column="1"
+                               ZIndex="3"
+                               IsRunning="{Binding IsLoading}"
+                               IsVisible="{Binding IsLoading}"
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center"
+                               WidthRequest="48"
+                               HeightRequest="48"
+                               Color="{DynamicResource AccentColor}"
+                               SemanticProperties.Description="Loading" />
+
+            <Border Grid.Column="1"
+                    ZIndex="6"
+                    IsVisible="{Binding HasLoadError}"
+                    HorizontalOptions="Center"
+                    VerticalOptions="Start"
+                    MaximumWidthRequest="560"
+                    Margin="16,24,16,0"
+                    Padding="20,16"
+                    StrokeThickness="1"
+                    Stroke="{DynamicResource WordsOfJesusColor}"
+                    StrokeShape="RoundRectangle 12"
+                    BackgroundColor="{DynamicResource SurfaceColor}">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                    <Label Text="&#xE783;"
+                           FontFamily="{StaticResource IconFont}"
+                           FontSize="20"
+                           TextColor="{DynamicResource WordsOfJesusColor}"
+                           VerticalOptions="Center" />
+                    <Label Grid.Column="1" Text="{Binding LoadError}" FontSize="15" VerticalOptions="Center" />
+                    <Button Grid.Column="2" Style="{StaticResource AccentButton}" Text="Try again" Command="{Binding RetryCommand}" />
+                </Grid>
+            </Border>
+
             <!-- ============ VERSE ACTION BAR (when verses are selected) ============ -->
             <Border Grid.Column="1"
                     ZIndex="3"
@@ -409,7 +444,7 @@
                                 Style="{StaticResource IconButton}"
                                 Text="&#xE711;"
                                 Command="{Binding ClearSelectionCommand}"
-                                ToolTipProperties.Text="Clear selection (Esc)" />
+                                ToolTipProperties.Text="Clear selection (Esc)" SemanticProperties.Description="Clear selection" />
                     </Grid>
                     <FlexLayout Wrap="Wrap" AlignItems="Center" JustifyContent="Start">
                         <!-- Highlight colours -->
@@ -422,7 +457,7 @@
                                             Stroke="{DynamicResource BorderColor}"
                                             StrokeShape="Ellipse"
                                             BackgroundColor="{Binding Color}"
-                                            ToolTipProperties.Text="{Binding Name}">
+                                            ToolTipProperties.Text="{Binding Name}" SemanticProperties.Description="{Binding Name}">
                                         <Border.GestureRecognizers>
                                             <TapGestureRecognizer Command="{Binding HighlightSelectionCommand, Source={RelativeSource AncestorType={x:Type vm:ReaderViewModel}}, x:DataType=vm:ReaderViewModel}"
                                                                   CommandParameter="{Binding .}" />
@@ -436,13 +471,13 @@
                                 Text="&#xE75C;"
                                 Margin="0,0,10,6"
                                 Command="{Binding RemoveHighlightCommand}"
-                                ToolTipProperties.Text="Remove highlight" />
+                                ToolTipProperties.Text="Remove highlight" SemanticProperties.Description="Remove highlight" />
 
                         <HorizontalStackLayout Spacing="6" Margin="0,0,0,6">
                             <Button Style="{StaticResource OutlineButton}" Text="{Binding NoteActionLabel}" Command="{Binding OpenNoteEditorCommand}" />
-                            <Button Style="{StaticResource OutlineButton}" Text="Copy" Command="{Binding CopySelectionCommand}" ToolTipProperties.Text="Copy with reference (Ctrl+C)" />
+                            <Button Style="{StaticResource OutlineButton}" Text="Copy" Command="{Binding CopySelectionCommand}" ToolTipProperties.Text="Copy with reference (Ctrl+C)" SemanticProperties.Description="Copy with reference" />
                             <Button Style="{StaticResource OutlineButton}" Text="Share" Command="{Binding ShareSelectionCommand}" />
-                            <Button Style="{StaticResource AccentButton}" Text="Present" Command="{Binding PresentSelectionCommand}" ToolTipProperties.Text="Show on the projector from here" />
+                            <Button Style="{StaticResource AccentButton}" Text="Present" Command="{Binding PresentSelectionCommand}" ToolTipProperties.Text="Show on the projector from here" SemanticProperties.Description="Show on the projector from here" />
                         </HorizontalStackLayout>
                     </FlexLayout>
                 </VerticalStackLayout>
@@ -477,7 +512,7 @@
                                 Text="&#xE711;"
                                 VerticalOptions="Start"
                                 Command="{Binding CloseNoteEditorCommand}"
-                                ToolTipProperties.Text="Close without saving (Esc)" />
+                                ToolTipProperties.Text="Close without saving (Esc)" SemanticProperties.Description="Close without saving" />
                     </Grid>
 
                     <Label Grid.Row="1"
@@ -550,13 +585,13 @@
                                               PointerExited="ProjectorControls_PointerExited" />
                 </Border.GestureRecognizers>
                 <HorizontalStackLayout Spacing="2">
-                    <Button Style="{StaticResource IconButton}" Text="&#xE76B;" Command="{Binding PreviousChapterCommand}" ToolTipProperties.Text="Previous chapter" />
-                    <Button Style="{StaticResource IconButton}" Text="&#xE76C;" Command="{Binding NextChapterCommand}" ToolTipProperties.Text="Next chapter" />
-                    <Button Style="{StaticResource IconButton}" Text="&#xE8E7;" Command="{Binding DecreaseFontCommand}" ToolTipProperties.Text="Smaller text" />
+                    <Button Style="{StaticResource IconButton}" Text="&#xE76B;" Command="{Binding PreviousChapterCommand}" ToolTipProperties.Text="Previous chapter" SemanticProperties.Description="Previous chapter" />
+                    <Button Style="{StaticResource IconButton}" Text="&#xE76C;" Command="{Binding NextChapterCommand}" ToolTipProperties.Text="Next chapter" SemanticProperties.Description="Next chapter" />
+                    <Button Style="{StaticResource IconButton}" Text="&#xE8E7;" Command="{Binding DecreaseFontCommand}" ToolTipProperties.Text="Smaller text" SemanticProperties.Description="Smaller text" />
                     <Label Text="{Binding FontSizeLabel}" WidthRequest="56" FontSize="13" HorizontalTextAlignment="Center" VerticalOptions="Center" />
-                    <Button Style="{StaticResource IconButton}" Text="&#xE8E8;" Command="{Binding IncreaseFontCommand}" ToolTipProperties.Text="Larger text" />
-                    <Button Style="{StaticResource IconButton}" Text="{Binding ThemeGlyph}" Command="{Binding ToggleThemeCommand}" ToolTipProperties.Text="Light / dark" />
-                    <Button Style="{StaticResource IconButton}" Text="&#xE73F;" Command="{Binding ExitProjectorCommand}" ToolTipProperties.Text="Exit (Esc)" />
+                    <Button Style="{StaticResource IconButton}" Text="&#xE8E8;" Command="{Binding IncreaseFontCommand}" ToolTipProperties.Text="Larger text" SemanticProperties.Description="Larger text" />
+                    <Button Style="{StaticResource IconButton}" Text="{Binding ThemeGlyph}" Command="{Binding ToggleThemeCommand}" ToolTipProperties.Text="Light / dark" SemanticProperties.Description="Light / dark" />
+                    <Button Style="{StaticResource IconButton}" Text="&#xE73F;" Command="{Binding ExitProjectorCommand}" ToolTipProperties.Text="Exit (Esc)" SemanticProperties.Description="Exit" />
                 </HorizontalStackLayout>
             </Border>
         </Grid>
@@ -657,7 +692,7 @@
             <VerticalStackLayout Spacing="14">
                 <Label Text="TEXT SIZE" Style="{StaticResource SectionHeaderLabel}" />
                 <Grid ColumnDefinitions="Auto,*,Auto">
-                    <Button Style="{StaticResource IconButton}" Text="&#xE8E7;" Command="{Binding DecreaseFontCommand}" />
+                    <Button Style="{StaticResource IconButton}" Text="&#xE8E7;" Command="{Binding DecreaseFontCommand}" SemanticProperties.Description="Smaller text" />
                     <Label Grid.Column="1"
                            Text="{Binding FontSizeLabel}"
                            FontSize="15"
@@ -668,7 +703,7 @@
                             <TapGestureRecognizer Command="{Binding ResetFontCommand}" />
                         </Label.GestureRecognizers>
                     </Label>
-                    <Button Grid.Column="2" Style="{StaticResource IconButton}" Text="&#xE8E8;" Command="{Binding IncreaseFontCommand}" />
+                    <Button Grid.Column="2" Style="{StaticResource IconButton}" Text="&#xE8E8;" Command="{Binding IncreaseFontCommand}" SemanticProperties.Description="Larger text" />
                 </Grid>
 
                 <BoxView HeightRequest="1" Color="{DynamicResource BorderColor}" />

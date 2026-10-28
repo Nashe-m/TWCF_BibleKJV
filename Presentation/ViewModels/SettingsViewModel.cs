@@ -83,14 +83,24 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         public double PreviewFontSize => Math.Min(Settings.FontSize, 56);
 
         public string AppVersion => $"Version {AppInfo.Current.VersionString}";
+        public bool ShowsKeyboardShortcuts => DeviceInfo.Platform == DevicePlatform.WinUI;
 
         public async Task LoadAsync()
         {
             if (_loaded) return;
             _loaded = true;
-            await Settings.LoadAsync();
-            foreach (var t in await _bibleService.GetTranslationsAsync())
-                Translations.Add(t);
+            try
+            {
+                await Settings.LoadAsync();
+                foreach (var t in await _bibleService.GetTranslationsAsync())
+                    Translations.Add(t);
+            }
+            catch (Exception ex)
+            {
+                // The page still works for display settings; only the version list is missing.
+                System.Diagnostics.Debug.WriteLine($"Loading settings page failed: {ex}");
+                _loaded = false;
+            }
             OnPropertyChanged(string.Empty);
         }
     }

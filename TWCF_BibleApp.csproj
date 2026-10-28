@@ -28,7 +28,7 @@
 		<MauiXamlInflator>SourceGen</MauiXamlInflator>
 
 		<!-- Display name -->
-		<ApplicationTitle>TWCF_BibleApp</ApplicationTitle>
+		<ApplicationTitle>TWCF Bible</ApplicationTitle>
 
 		<!-- App Identifier -->
 		<ApplicationId>com.companyname.twcf_bibleapp</ApplicationId>
@@ -47,12 +47,20 @@
 		<TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
 	</PropertyGroup>
 
+	<!-- The test project lives under Tests/; keep its files out of the app. -->
+	<ItemGroup>
+		<Compile Remove="Tests\**" />
+		<None Remove="Tests\**" />
+		<MauiXaml Remove="Tests\**" />
+		<InternalsVisibleTo Include="TWCF_BibleApp.Tests" />
+	</ItemGroup>
+
 	<ItemGroup>
 		<!-- App Icon -->
-		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
+		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#2B4C7E" />
 
 		<!-- Splash Screen -->
-		<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#512BD4" BaseSize="128,128" />
+		<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#2B4C7E" BaseSize="128,128" />
 
 		<!-- Images -->
 		<MauiImage Include="Resources\Images\*" />

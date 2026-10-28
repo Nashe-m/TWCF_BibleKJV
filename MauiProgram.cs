@@ -103,7 +103,9 @@ namespace TWCF_BibleApp
 
         private static async Task CopyBundledBibleDataAsync(string bibleDbPath)
         {
-            if (File.Exists(bibleDbPath) && Preferences.Default.Get(BibleDataVersionKey, 0) >= BibleDataVersion)
+            // An empty file means an earlier copy was interrupted; copy it again.
+            if (File.Exists(bibleDbPath) && new FileInfo(bibleDbPath).Length > 0
+                && Preferences.Default.Get(BibleDataVersionKey, 0) >= BibleDataVersion)
                 return;
 
             try
