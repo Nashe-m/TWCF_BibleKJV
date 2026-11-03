@@ -16,3 +16,7 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Published builds
+publish/
+dist/

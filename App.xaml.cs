@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui.Controls;
+using TWCF_BibleApp.Presentation.Services;
 using TWCF_BibleApp.Presentation.Views;
 
 namespace TWCF_BibleApp
@@ -19,14 +20,19 @@ namespace TWCF_BibleApp
             return new Window(_readerPage);
         }
     }*/
-        public App()
+        private readonly AppSettings _settings;
+
+        public App(AppSettings settings)
         {
             InitializeComponent();
+            _settings = settings;
         }
 
         protected override Window CreateWindow(IActivationState? activationState)
         {
-            return new Window(new AppShell()) { Title = "TWCF Bible" };
+            // Play the short opening animation, then hand the window to the shell.
+            var intro = new IntroPage(_settings, () => new AppShell());
+            return new Window(intro) { Title = "TWCF Bible" };
         }
     }
 

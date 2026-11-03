@@ -80,9 +80,10 @@
                                    LineBreakMode="TailTruncation">
                                 <Label.FormattedText>
                                     <FormattedString>
-                                        <!-- Spans don't inherit the label's font family -->
-                                        <Span Text="16  " FontAttributes="Bold" FontFamily="{StaticResource UiFont}" TextColor="{DynamicResource AccentColor}" />
-                                        <Span FontFamily="{StaticResource ScriptureFont}" TextColor="{DynamicResource PageTextColor}" Text="For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life." />
+                                        <!-- Spans don't inherit the label's font family. They also carry the size: a change to the
+                                             label's FontSize alone doesn't re-measure formatted text, so the box wouldn't grow with it. -->
+                                        <Span Text="16  " FontAttributes="Bold" FontFamily="{StaticResource UiFont}" FontSize="{Binding PreviewFontSize}" TextColor="{DynamicResource AccentColor}" />
+                                        <Span FontFamily="{StaticResource ScriptureFont}" FontSize="{Binding PreviewFontSize}" TextColor="{DynamicResource PageTextColor}" Text="For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life." />
                                     </FormattedString>
                                 </Label.FormattedText>
                             </Label>

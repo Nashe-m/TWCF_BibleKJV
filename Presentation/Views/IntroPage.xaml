@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    Opening animation, shown once per launch before the shell (see App.CreateWindow).
+    The background and artwork match Resources/Splash/splash.svg, so on Android and iOS the
+    native splash hands over to this page without a visible jump. Tap to skip.
+-->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="TWCF_BibleApp.Presentation.Views.IntroPage"
+             x:Name="Root"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="#2B4C7E">
+
+    <!-- Transparent (not null) background so taps anywhere on the page reach the recognizer. -->
+    <Grid x:Name="Stage" RowDefinitions="*,Auto,Auto,*" RowSpacing="28"
+          BackgroundColor="Transparent"
+          SemanticProperties.Description="TWCF Bible is opening">
+        <Grid.GestureRecognizers>
+            <TapGestureRecognizer Tapped="OnSkipTapped" />
+        </Grid.GestureRecognizers>
+
+        <!-- The splash artwork, scaled to a 153 x 131 canvas. Every path shares the canvas,
+             so AnchorX 0.5 is the book's spine. -->
+        <Grid x:Name="Book" Grid.Row="1"
+              WidthRequest="153" HeightRequest="131"
+              HorizontalOptions="Center"
+              Scale="1.3">
+            <Path x:Name="LeftPage" Fill="#FBFAF7" AnchorX="0.5" ScaleX="0"
+                  Data="M 76.5 19.5 C 55.5 4.5 25.5 0 0 3 L 0 115.5 C 25.5 112.5 55.5 117 76.5 130.5 Z" />
+            <Path x:Name="RightPage" Fill="#FBFAF7" AnchorX="0.5" ScaleX="0"
+                  Data="M 76.5 19.5 C 97.5 4.5 127.5 0 153 3 L 153 115.5 C 127.5 112.5 97.5 117 76.5 130.5 Z" />
+
+            <Path x:Name="Line1" Stroke="#2B4C7E" StrokeThickness="5" StrokeLineCap="Round" Opacity="0"
+                  Data="M 18 34.5 C 34.5 33 49.5 36 61.5 42" />
+            <Path x:Name="Line2" Stroke="#2B4C7E" StrokeThickness="5" StrokeLineCap="Round" Opacity="0"
+                  Data="M 18 55.5 C 34.5 54 49.5 57 61.5 63" />
+            <Path x:Name="Line3" Stroke="#2B4C7E" StrokeThickness="5" StrokeLineCap="Round" Opacity="0"
+                  Data="M 18 76.5 C 34.5 75 49.5 78 61.5 84" />
+            <Path x:Name="Line4" Stroke="#2B4C7E" StrokeThickness="5" StrokeLineCap="Round" Opacity="0"
+                  Data="M 91.5 42 C 103.5 36 118.5 33 135 34.5" />
+            <Path x:Name="Line5" Stroke="#2B4C7E" StrokeThickness="5" StrokeLineCap="Round" Opacity="0"
+                  Data="M 91.5 63 C 103.5 57 118.5 54 135 55.5" />
+
+            <Path x:Name="Ribbon" Fill="#B3261E" Opacity="0" TranslationY="-18"
+                  Data="M 120 3 L 135 2.5 L 135 63 L 127.5 54 L 120 63 Z" />
+        </Grid>
+
+        <Label x:Name="AppName" Grid.Row="2"
+               Text="TWCF Bible"
+               FontFamily="{StaticResource ScriptureFont}"
+               FontSize="28"
+               TextColor="#FBFAF7"
+               HorizontalOptions="Center"
+               Opacity="0"
+               TranslationY="12" />
+    </Grid>
+</ContentPage>
