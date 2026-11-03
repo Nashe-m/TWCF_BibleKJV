@@ -17,6 +17,8 @@ namespace TWCF_BibleApp.Presentation.Views
             _vm = vm;
 
             _vm.ScrollRequested += OnScrollRequested;
+            _vm.PositionRestoreRequested += OnPositionRestoreRequested;
+            _vm.GetReadingPosition = GetReadingPosition;
             _vm.ProjectorModeChanged += (_, on) =>
             {
                 KeepCurrentVerseInView();
@@ -85,9 +87,14 @@ namespace TWCF_BibleApp.Presentation.Views
         // The verse to keep in view while the text is still being laid out after a jump.
         private int _scrollTarget = -1;
         private DateTime _keepScrollTargetUntil;
+        // When set, the target verse's top goes this far below the top of the reading area
+        // (keeping the reader's place); otherwise the verse is centred.
+        private double? _targetOffset;
+        private double _savedOffset;
 
         private void OnScrollRequested(object? sender, int verseIndex)
         {
+            _targetOffset = null;
             _scrollTarget = verseIndex;
             // Entering projector mode re-wraps the text at a new width a little later, which moves
             // the verse; VersesLayout.SizeChanged scrolls again until then.
@@ -101,6 +108,31 @@ namespace TWCF_BibleApp.Presentation.Views
             });
         }
 
+        // The first verse still showing at the top of the reading area, and where its top sits.
+        private int? GetReadingPosition()
+        {
+            var top = ReadingScroll.ScrollY - VersesLayout.Y;
+            if (top <= 0) return null;   // still at the chapter heading
+            for (var i = 0; i < VersesLayout.Children.Count && i < _vm.Verses.Count; i++)
+            {
+                if (VersesLayout.Children[i] is VisualElement v && v.Y + v.Height > top)
+                {
+                    _savedOffset = v.Y - top;
+                    return _vm.Verses[i].Number;
+                }
+            }
+            return null;
+        }
+
+        private void OnPositionRestoreRequested(object? sender, int verseIndex)
+        {
+            _scrollTarget = verseIndex;
+            // A verse cut off at the top comes back with its start showing.
+            _targetOffset = Math.Max(0, _savedOffset);
+            _keepScrollTargetUntil = DateTime.UtcNow.AddSeconds(1.5);
+            Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(50), () => ScrollToTarget(animate: false));
+        }
+
         // Switching projector mode changes the text width; keep the verse being read on screen.
         private void KeepCurrentVerseInView()
         {
@@ -109,6 +141,7 @@ namespace TWCF_BibleApp.Presentation.Views
             {
                 if (VersesLayout.Children[i] is VisualElement v && centre >= v.Y && centre <= v.Y + v.Height + VersesLayout.Spacing)
                 {
+                    _targetOffset = null;
                     _scrollTarget = i;
                     _keepScrollTargetUntil = DateTime.UtcNow.AddSeconds(1.5);
                     return;
@@ -130,7 +163,9 @@ namespace TWCF_BibleApp.Presentation.Views
             if (_scrollTarget >= 0 && _scrollTarget < VersesLayout.Children.Count
                 && VersesLayout.Children[_scrollTarget] is VisualElement verse)
             {
-                var y = VersesLayout.Y + verse.Y - (ReadingScroll.Height - verse.Height) / 2;
+                var y = _targetOffset is double offset
+                    ? VersesLayout.Y + verse.Y - offset
+                    : VersesLayout.Y + verse.Y - (ReadingScroll.Height - verse.Height) / 2;
                 _ = ReadingScroll.ScrollToAsync(0, Math.Max(0, y), animate);
             }
             else

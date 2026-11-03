@@ -8,6 +8,7 @@ using TWCF_BibleApp.Application.DTOs;
 using TWCF_BibleApp.Application.Services;
 using TWCF_BibleApp.Domain.Enums;
 using TWCF_BibleApp.Presentation.Services;
+using TWCF_BibleApp.Presentation.Themes;
 
 namespace TWCF_BibleApp.Presentation.ViewModels
 {
@@ -34,6 +35,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
                 "Relaxed" => AppSettings.RelaxedLineSpacing,
                 _ => AppSettings.NormalLineSpacing,
             });
+            SetReadingFontCommand = new RelayCommand<string>(v => Settings.ReadingFont = Enum.Parse<ReadingFont>(v!));
             SetProjectorThemeCommand = new RelayCommand<string>(v => Settings.ProjectorTheme = Enum.Parse<ProjectorTheme>(v!));
             SetProjectorMarginsCommand = new RelayCommand<string>(v => Settings.ProjectorMargins = Enum.Parse<ProjectorMargins>(v!));
             IncreaseFontCommand = new RelayCommand(() => Settings.FontSize = Settings.FontSize < 40 ? Settings.FontSize + 2 : Settings.FontSize * 1.1);
@@ -45,6 +47,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
 
         public IRelayCommand<string> SetThemeCommand { get; }
         public IRelayCommand<string> SetLineSpacingCommand { get; }
+        public IRelayCommand<string> SetReadingFontCommand { get; }
         public IRelayCommand<string> SetProjectorThemeCommand { get; }
         public IRelayCommand<string> SetProjectorMarginsCommand { get; }
         public IRelayCommand IncreaseFontCommand { get; }
@@ -69,6 +72,15 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         public bool IsSpacingCompact => Settings.LineSpacing < (AppSettings.CompactLineSpacing + AppSettings.NormalLineSpacing) / 2;
         public bool IsSpacingRelaxed => Settings.LineSpacing > (AppSettings.NormalLineSpacing + AppSettings.RelaxedLineSpacing) / 2;
         public bool IsSpacingNormal => !IsSpacingCompact && !IsSpacingRelaxed;
+
+        public bool IsFontSerif => Settings.ReadingFont == ReadingFont.Serif;
+        public bool IsFontBook => Settings.ReadingFont == ReadingFont.Book;
+        public bool IsFontSansSerif => Settings.ReadingFont == ReadingFont.SansSerif;
+
+        // Each choice is shown in its own face.
+        public string SerifFontFamily => ReadingFonts.FamilyFor(ReadingFont.Serif);
+        public string BookFontFamily => ReadingFonts.FamilyFor(ReadingFont.Book);
+        public string SansSerifFontFamily => ReadingFonts.FamilyFor(ReadingFont.SansSerif);
 
         public bool IsProjectorSameAsApp => Settings.ProjectorTheme == ProjectorTheme.SameAsApp;
         public bool IsProjectorLight => Settings.ProjectorTheme == ProjectorTheme.Light;

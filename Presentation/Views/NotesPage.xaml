@@ -84,7 +84,7 @@
                             </Grid>
 
                             <Label Text="{Binding VerseText}"
-                                   FontFamily="{StaticResource ScriptureFont}"
+                                   FontFamily="{DynamicResource ScriptureFont}"
                                    FontSize="15"
                                    MaxLines="3"
                                    LineBreakMode="TailTruncation"

@@ -26,6 +26,7 @@ namespace TWCF_BibleApp.Persistence.Repositories
             {
                 LineSpacing = e.LineSpacing,
                 ShowVerseNumbers = e.ShowVerseNumbers,
+                ReadingFont = e.ReadingFont,
                 ProjectorTheme = e.ProjectorTheme,
                 ProjectorMargins = e.ProjectorMargins,
                 ShowAnnotationsWhenProjecting = e.ShowAnnotationsWhenProjecting,
@@ -51,6 +52,7 @@ namespace TWCF_BibleApp.Persistence.Repositories
             entity.ShowWordsOfJesus = setting.ShowWordsOfJesus;
             entity.LineSpacing = setting.LineSpacing;
             entity.ShowVerseNumbers = setting.ShowVerseNumbers;
+            entity.ReadingFont = setting.ReadingFont;
             entity.ProjectorTheme = setting.ProjectorTheme;
             entity.ProjectorMargins = setting.ProjectorMargins;
             entity.ShowAnnotationsWhenProjecting = setting.ShowAnnotationsWhenProjecting;

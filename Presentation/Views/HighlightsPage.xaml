@@ -71,7 +71,7 @@
                             <VerticalStackLayout Grid.Column="1" Padding="16,12" Spacing="6">
                                 <Label Text="{Binding Reference}" FontSize="15" FontAttributes="Bold" TextColor="{DynamicResource AccentColor}" />
                                 <Label Text="{Binding VerseText}"
-                                       FontFamily="{StaticResource ScriptureFont}"
+                                       FontFamily="{DynamicResource ScriptureFont}"
                                        FontSize="17"
                                        LineHeight="1.35" />
                                 <HorizontalStackLayout Spacing="4" Margin="-8,0,0,-4">

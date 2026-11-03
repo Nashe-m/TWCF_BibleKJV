@@ -14,6 +14,7 @@ namespace TWCF_BibleApp.Domain
         public bool ShowWordsOfJesus { get; init; } = true; // red-letter text
         public double LineSpacing { get; init; } = 1.45;
         public bool ShowVerseNumbers { get; init; } = true;
+        public ReadingFont ReadingFont { get; init; } = ReadingFont.Serif;
         public ProjectorTheme ProjectorTheme { get; init; } = ProjectorTheme.SameAsApp;
         public ProjectorMargins ProjectorMargins { get; init; } = ProjectorMargins.Normal;
         // While projecting, only the text shows unless these are turned on.

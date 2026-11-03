@@ -44,6 +44,8 @@
 
     <x:String x:Key="ScriptureFont">Georgia</x:String>
     <x:String x:Key="UiFont">Segoe UI</x:String>
+    <!-- Bundled (Resources/Fonts) so headings look the same on every platform -->
+    <x:String x:Key="HeadingFont">OpenSansSemibold</x:String>
     <x:String x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</x:String>
 
     <Style x:Key="PageStyle" TargetType="ContentPage">

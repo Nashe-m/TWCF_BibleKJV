@@ -203,7 +203,7 @@
                                    FontAttributes="Bold"
                                    TextColor="{DynamicResource AccentColor}" />
                             <comp:HighlightedLabel MarkedText="{Binding HighlightedText}"
-                                                   FontFamily="{StaticResource ScriptureFont}"
+                                                   FontFamily="{DynamicResource ScriptureFont}"
                                                    FontSize="18"
                                                    LineHeight="1.4" />
                         </VerticalStackLayout>

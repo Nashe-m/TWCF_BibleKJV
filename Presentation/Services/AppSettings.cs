@@ -64,6 +64,26 @@ namespace TWCF_BibleApp.Presentation.Services
         private bool _showVerseNumbers = true;
         public bool ShowVerseNumbers { get => _showVerseNumbers; set => Set(ref _showVerseNumbers, value); }
 
+        private ReadingFont _readingFont = ReadingFont.Serif;
+        public ReadingFont ReadingFont
+        {
+            get => _readingFont;
+            set
+            {
+                if (Set(ref _readingFont, value)) ApplyReadingFont();
+            }
+        }
+
+        /// <summary>The font family for scripture text; also published as the ScriptureFont resource.</summary>
+        public string ScriptureFontFamily => ReadingFonts.FamilyFor(ReadingFont);
+
+        private void ApplyReadingFont()
+        {
+            if (Microsoft.Maui.Controls.Application.Current is { } app)
+                app.Resources["ScriptureFont"] = ScriptureFontFamily;
+            OnPropertyChanged(nameof(ScriptureFontFamily));
+        }
+
         // ---- Projector ----------------------------------------------------------------------
 
         private ProjectorTheme _projectorTheme = ProjectorTheme.SameAsApp;
@@ -160,6 +180,7 @@ namespace TWCF_BibleApp.Presentation.Services
                 _showWordsOfJesus = s.ShowWordsOfJesus;
                 _lineSpacing = s.LineSpacing;
                 _showVerseNumbers = s.ShowVerseNumbers;
+                _readingFont = s.ReadingFont;
                 _projectorTheme = s.ProjectorTheme;
                 _projectorMargins = s.ProjectorMargins;
                 _showAnnotationsWhenProjecting = s.ShowAnnotationsWhenProjecting;
@@ -172,6 +193,7 @@ namespace TWCF_BibleApp.Presentation.Services
 
             _loaded = true;
             ApplyTheme();
+            ApplyReadingFont();
 
             // "System" follows Windows / the phone when its theme changes.
             if (Microsoft.Maui.Controls.Application.Current is { } app)
@@ -204,6 +226,7 @@ namespace TWCF_BibleApp.Presentation.Services
                     {
                         LineSpacing = LineSpacing,
                         ShowVerseNumbers = ShowVerseNumbers,
+                        ReadingFont = ReadingFont,
                         ProjectorTheme = ProjectorTheme,
                         ProjectorMargins = ProjectorMargins,
                         ShowAnnotationsWhenProjecting = ShowAnnotationsWhenProjecting,

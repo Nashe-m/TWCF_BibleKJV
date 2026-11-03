@@ -47,7 +47,7 @@
 
         <Label x:Name="AppName" Grid.Row="2"
                Text="TWCF Bible"
-               FontFamily="{StaticResource ScriptureFont}"
+               FontFamily="{DynamicResource ScriptureFont}"
                FontSize="28"
                TextColor="#FBFAF7"
                HorizontalOptions="Center"

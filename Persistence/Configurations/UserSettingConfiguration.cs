@@ -17,6 +17,7 @@ namespace TWCF_BibleApp.Persistence.Configurations
             builder.Property(x => x.ShowWordsOfJesus).IsRequired().HasDefaultValue(true);
             builder.Property(x => x.LineSpacing).IsRequired().HasDefaultValue(1.45);
             builder.Property(x => x.ShowVerseNumbers).IsRequired().HasDefaultValue(true);
+            builder.Property(x => x.ReadingFont).IsRequired().HasDefaultValue(ReadingFont.Serif);
             builder.Property(x => x.ProjectorTheme).IsRequired().HasDefaultValue(ProjectorTheme.SameAsApp);
             builder.Property(x => x.ProjectorMargins).IsRequired().HasDefaultValue(ProjectorMargins.Normal);
             builder.Property(x => x.ShowAnnotationsWhenProjecting).IsRequired().HasDefaultValue(false);

@@ -45,6 +45,13 @@ namespace TWCF_BibleApp.Presentation.ViewModels
 
         /// <summary>Raised after a chapter loads: the verse index to scroll to, or -1 for the top.</summary>
         public event EventHandler<int>? ScrollRequested;
+
+        /// <summary>Raised after a reload that should keep the reader's place (a version switch):
+        /// the verse index to put back where the reader left it.</summary>
+        public event EventHandler<int>? PositionRestoreRequested;
+
+        /// <summary>Set by the page: the number of the verse at the top of the reading area, or null at the chapter's start.</summary>
+        public Func<int?>? GetReadingPosition { get; set; }
         public event EventHandler<bool>? ProjectorModeChanged;
 
         public ReaderViewModel(BibleService bibleService, UserService userService, AppSettings settings)
@@ -151,7 +158,11 @@ namespace TWCF_BibleApp.Presentation.ViewModels
                 OnPropertyChanged(nameof(HasWordsOfJesus));
                 _settings.TranslationId = value.Id;
                 if (_initialized)
-                    _ = NavigateToAsync(CurrentBookId, CurrentChapter);
+                {
+                    // Same verse, same marks, in the new version.
+                    var marked = VerseRange.FromVerses(Verses.Where(v => v.IsTarget).Select(v => v.Number));
+                    _ = NavigateToAsync(CurrentBookId, CurrentChapter, marked, keepVerse: GetReadingPosition?.Invoke());
+                }
             }
         }
 
@@ -162,10 +173,11 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         // The note icon beside a verse grows with the text so it stays easy to hit.
         public double NoteMarkerFontSize => Math.Max(16, ReadingFontSize * 0.5);
         public double NoteMarkerSize => Math.Max(40, NoteMarkerFontSize * 2);
-        public double ChapterTitleFontSize => Math.Clamp(ReadingFontSize * 1.6, 40, 140);
+        public double ChapterTitleFontSize => Math.Clamp(ReadingFontSize * 1.15, 22, 80);
         public double VerseSpacing => ReadingFontSize * 0.5;
         public string FontSizeLabel => $"{ReadingFontSize:0} pt";
         public double LineSpacing => _settings.LineSpacing;
+        public string ScriptureFontFamily => _settings.ScriptureFontFamily;
         public bool ShowVerseNumbers => _settings.ShowVerseNumbers;
 
         // Keep lines a readable length on a desktop; use the whole screen when projecting.
@@ -228,6 +240,9 @@ namespace TWCF_BibleApp.Presentation.ViewModels
                 case nameof(AppSettings.ShowVerseNumbers):
                     OnPropertyChanged(nameof(ShowVerseNumbers));
                     break;
+                case nameof(AppSettings.ScriptureFontFamily):
+                    OnPropertyChanged(nameof(ScriptureFontFamily));
+                    break;
                 case nameof(AppSettings.ProjectorMargins):
                     OnPropertyChanged(nameof(ReadingPadding));
                     break;
@@ -247,7 +262,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
                     foreach (var name in new[] { nameof(ReadingFontSize), nameof(VerseNumberFontSize), nameof(NoteMarkerFontSize),
                                  nameof(NoteMarkerSize), nameof(ChapterTitleFontSize), nameof(VerseSpacing), nameof(FontSizeLabel),
                                  nameof(ReadingColumnWidth), nameof(ShowWordsOfJesus), nameof(LineSpacing), nameof(ShowVerseNumbers),
-                                 nameof(ReadingPadding) })
+                                 nameof(ReadingPadding), nameof(ScriptureFontFamily) })
                         OnPropertyChanged(name);
                     break;
             }
@@ -533,8 +548,9 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         public Task NavigateToAsync(int bookId, int chapter, int? verse = null) =>
             NavigateToAsync(bookId, chapter, verse is int v ? new[] { new VerseRange(v, v) } : Array.Empty<VerseRange>());
 
-        /// <summary>Shows a chapter, scrolling to the first of the given verses and marking them all.</summary>
-        public async Task NavigateToAsync(int bookId, int chapter, IReadOnlyList<VerseRange> verses)
+        /// <summary>Shows a chapter, scrolling to the first of the given verses and marking them all.
+        /// With keepVerse, scrolls back to that verse where the reader left it instead.</summary>
+        public async Task NavigateToAsync(int bookId, int chapter, IReadOnlyList<VerseRange> verses, int? keepVerse = null)
         {
             if (!_initialized || SelectedTranslation == null) return;
             CloseNoteEditor();
@@ -595,7 +611,13 @@ namespace TWCF_BibleApp.Presentation.ViewModels
                 OnPropertyChanged(nameof(ChapterTitle));
                 OnPropertyChanged(nameof(TestamentLabel));
                 UpdateNeighbourLabels();
-                ScrollRequested?.Invoke(this, targetIndex);
+
+                // Versions don't always number verses alike; fall back to the nearest earlier verse.
+                var keepIndex = keepVerse is int kv ? Verses.ToList().FindLastIndex(v => v.Number <= kv) : -1;
+                if (keepIndex >= 0)
+                    PositionRestoreRequested?.Invoke(this, keepIndex);
+                else
+                    ScrollRequested?.Invoke(this, targetIndex);
             }
             catch (Exception ex)
             {

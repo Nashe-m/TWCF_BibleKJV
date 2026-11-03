@@ -13,6 +13,7 @@ namespace TWCF_BibleApp.Persistence.Entities
         public bool ShowWordsOfJesus { get; set; } = true;
         public double LineSpacing { get; set; } = 1.45;
         public bool ShowVerseNumbers { get; set; } = true;
+        public ReadingFont ReadingFont { get; set; } = ReadingFont.Serif;
         public ProjectorTheme ProjectorTheme { get; set; } = ProjectorTheme.SameAsApp;
         public ProjectorMargins ProjectorMargins { get; set; } = ProjectorMargins.Normal;
         public bool ShowAnnotationsWhenProjecting { get; set; }

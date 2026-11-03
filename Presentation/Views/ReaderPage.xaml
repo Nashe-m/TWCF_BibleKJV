@@ -204,7 +204,7 @@
                 <Button Style="{StaticResource OutlineButton}"
                         IsVisible="{Binding IsCompact}"
                         Text="Aa"
-                        FontFamily="{StaticResource ScriptureFont}"
+                        FontFamily="{DynamicResource ScriptureFont}"
                         FontSize="17"
                         Padding="12,0"
                         Command="{Binding ToggleDisplayMenuCommand}"
@@ -277,10 +277,9 @@
                            FontSize="13" />
 
                     <Label Text="{Binding ChapterTitle}"
-                           FontFamily="{StaticResource ScriptureFont}"
+                           FontFamily="{StaticResource HeadingFont}"
                            FontSize="{Binding ChapterTitleFontSize}"
-                           FontAttributes="Bold"
-                           Margin="0,4,0,24" />
+                           Margin="0,2,0,20" />
 
                     <VerticalStackLayout x:Name="VersesLayout"
                                          SizeChanged="VersesLayout_SizeChanged"
@@ -288,9 +287,8 @@
                                          BindableLayout.ItemsSource="{Binding Verses}">
                         <BindableLayout.ItemTemplate>
                             <DataTemplate x:DataType="vm:VerseItem">
-                                <!-- Background: highlight colour (or the jump target); outline: selected -->
-                                <Border StrokeThickness="2"
-                                        Stroke="Transparent"
+                                <!-- Background: highlight colour (or the jump target). Selected verses are underlined by VerseLabel. -->
+                                <Border StrokeThickness="0"
                                         Padding="10,4"
                                         Margin="-10,0"
                                         StrokeShape="RoundRectangle 8"
@@ -307,18 +305,20 @@
                                             </MultiTrigger.Conditions>
                                             <Setter Property="BackgroundColor" Value="{DynamicResource AccentSoftColor}" />
                                         </MultiTrigger>
-                                        <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
-                                            <Setter Property="Stroke" Value="{DynamicResource AccentColor}" />
-                                        </DataTrigger>
                                     </Border.Triggers>
                                     <Grid ColumnDefinitions="*,Auto">
-                                        <comp:VerseLabel Verse="{Binding .}"
-                                                         FontFamily="{StaticResource ScriptureFont}"
+                                        <comp:VerseLabel x:Name="VerseText"
+                                                         Verse="{Binding .}"
+                                                         IsUnderlined="{Binding IsSelected}"
+                                                         FontFamily="{DynamicResource ScriptureFont}"
+                                                         TextFontFamily="{Binding ScriptureFontFamily, Source={RelativeSource AncestorType={x:Type vm:ReaderViewModel}}, x:DataType=vm:ReaderViewModel}"
                                                          FontSize="{Binding ReadingFontSize, Source={RelativeSource AncestorType={x:Type vm:ReaderViewModel}}, x:DataType=vm:ReaderViewModel}"
                                                          NumberFontSize="{Binding VerseNumberFontSize, Source={RelativeSource AncestorType={x:Type vm:ReaderViewModel}}, x:DataType=vm:ReaderViewModel}"
                                                          ShowWordsOfJesus="{Binding ShowWordsOfJesus, Source={RelativeSource AncestorType={x:Type vm:ReaderViewModel}}, x:DataType=vm:ReaderViewModel}"
                                                          ShowNumber="{Binding ShowVerseNumbers, Source={RelativeSource AncestorType={x:Type vm:ReaderViewModel}}, x:DataType=vm:ReaderViewModel}"
                                                          LineHeight="{Binding LineSpacing, Source={RelativeSource AncestorType={x:Type vm:ReaderViewModel}}, x:DataType=vm:ReaderViewModel}" />
+                                        <!-- Faint dotted underline while selected (drawn over the text, lets taps through) -->
+                                        <comp:VerseUnderline Label="{x:Reference VerseText}" />
                                         <!-- Note marker: opens the note -->
                                         <Button Grid.Column="1"
                                                 Style="{StaticResource IconButton}"
@@ -496,7 +496,7 @@
 
                     <Label Grid.Row="1"
                            Text="{Binding NotePreview}"
-                           FontFamily="{StaticResource ScriptureFont}"
+                           FontFamily="{DynamicResource ScriptureFont}"
                            FontSize="15"
                            MaxLines="4"
                            LineBreakMode="TailTruncation"
