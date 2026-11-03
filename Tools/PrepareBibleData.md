@@ -10,10 +10,16 @@ Current versions
 | 1  | KJV  | eng-kjv2006   | King James Version               | Public domain                   | Yes            |
 | 2  | WEB  | engwebp       | World English Bible              | Public domain                   | Yes            |
 | 3  | ASV  | eng-asv       | American Standard Version        | Public domain                   | No             |
-| 4  | SNA  | sna           | Shona Contemporary Bible (2017)  | CC BY-SA 4.0, (c) Biblica, Inc. | No             |
+| 4  | SNA  | sna           | Shona Contemporary Bible (2017)  | CC BY-SA 4.0, (c) 2005, 2018 Biblica, Inc. | No             |
 
 Translation Ids are stored in user settings, so never renumber them. Shona requires the
 attribution text in `Translations.Copyright` to be shown in the app (the reader does this).
+Its official title is "Bhaibheri Dzvene Rakasununguka MuChiShona Chanhasi 2017". Because the app
+modifies the text (drops headings, notes and extra books), the CC BY-SA terms ask that the notice
+says so, uses "Biblica" without the (R) trademark, and includes Biblica's line "The original work by
+Biblica, Inc. is available for free at www.biblica.com and open.bible."
+(https://ebible.org/Scriptures/details.php?id=sna). Bump `BibleDataVersion` in `MauiProgram.cs`
+whenever the database changes.
 
 Steps
 

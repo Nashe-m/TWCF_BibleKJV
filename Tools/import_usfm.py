@@ -32,9 +32,14 @@ TRANSLATIONS = [
      "Public domain. \"World English Bible\" is a trademark of eBible.org."),
     (3, "eng-asv", "ASV", "American Standard Version", "English",
      "Public domain."),
+    # Wording per https://ebible.org/Scriptures/details.php?id=sna. The text is modified (headings,
+    # notes and extra books dropped), so the licence asks for "Biblica" without the (R) mark, a note
+    # that it was changed, and Biblica's attribution line.
     (4, "sna", "SNA", "Shona Contemporary Bible (2017)", "Shona",
-     "Copyright \u00a9 2017 Biblica, Inc. Licensed under the Creative Commons "
-     "Attribution-ShareAlike 4.0 license (CC BY-SA 4.0). Source: open.bible / eBible.org."),
+     "Bhaibheri Dzvene Rakasununguka MuChiShona Chanhasi 2017. Copyright \u00a9 2005, 2018 Biblica, Inc. "
+     "Licensed under the Creative Commons Attribution-ShareAlike 4.0 International license (CC BY-SA 4.0). "
+     "Formatting changed for this app. The original work by Biblica, Inc. is available for free at "
+     "www.biblica.com and open.bible."),
 ]
 
 BOOK_CODES = [
