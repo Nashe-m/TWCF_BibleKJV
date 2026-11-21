@@ -48,9 +48,10 @@
                             BindableLayout.ItemsSource="{Binding Chapters}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="vm:ChapterNavItem">
-                            <Border WidthRequest="40"
-                                    HeightRequest="34"
-                                    Margin="0,0,5,5"
+                            <!-- A fixed-size cell with the gap inside it: FlexLayout (MAUI 10.0.130) takes a
+                                 child's bottom margin out of its height, which clipped the chips. -->
+                            <Grid WidthRequest="45" HeightRequest="39">
+                            <Border Margin="0,0,5,5"
                                     StrokeThickness="0"
                                     StrokeShape="RoundRectangle 7"
                                     BackgroundColor="{DynamicResource ChipColor}">
@@ -75,6 +76,7 @@
                                     </Label.Triggers>
                                 </Label>
                             </Border>
+                            </Grid>
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </FlexLayout>
