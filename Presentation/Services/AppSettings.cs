@@ -99,6 +99,9 @@ namespace TWCF_BibleApp.Presentation.Services
         private ProjectorMargins _projectorMargins = ProjectorMargins.Normal;
         public ProjectorMargins ProjectorMargins { get => _projectorMargins; set => Set(ref _projectorMargins, value); }
 
+        private ProjectorDisplay _projectorDisplay = ProjectorDisplay.SingleVerse;
+        public ProjectorDisplay ProjectorDisplay { get => _projectorDisplay; set => Set(ref _projectorDisplay, value); }
+
         private bool _showAnnotationsWhenProjecting;
         public bool ShowAnnotationsWhenProjecting { get => _showAnnotationsWhenProjecting; set => Set(ref _showAnnotationsWhenProjecting, value); }
 
@@ -183,6 +186,7 @@ namespace TWCF_BibleApp.Presentation.Services
                 _readingFont = s.ReadingFont;
                 _projectorTheme = s.ProjectorTheme;
                 _projectorMargins = s.ProjectorMargins;
+                _projectorDisplay = s.ProjectorDisplay;
                 _showAnnotationsWhenProjecting = s.ShowAnnotationsWhenProjecting;
                 _markJumpWhenProjecting = s.MarkJumpWhenProjecting;
                 _translationId = s.LastTranslationId;
@@ -229,6 +233,7 @@ namespace TWCF_BibleApp.Presentation.Services
                         ReadingFont = ReadingFont,
                         ProjectorTheme = ProjectorTheme,
                         ProjectorMargins = ProjectorMargins,
+                        ProjectorDisplay = ProjectorDisplay,
                         ShowAnnotationsWhenProjecting = ShowAnnotationsWhenProjecting,
                         MarkJumpWhenProjecting = MarkJumpWhenProjecting,
                     });

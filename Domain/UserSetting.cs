@@ -17,6 +17,7 @@ namespace TWCF_BibleApp.Domain
         public ReadingFont ReadingFont { get; init; } = ReadingFont.Serif;
         public ProjectorTheme ProjectorTheme { get; init; } = ProjectorTheme.SameAsApp;
         public ProjectorMargins ProjectorMargins { get; init; } = ProjectorMargins.Normal;
+        public ProjectorDisplay ProjectorDisplay { get; init; } = ProjectorDisplay.SingleVerse;
         // While projecting, only the text shows unless these are turned on.
         public bool ShowAnnotationsWhenProjecting { get; init; }
         public bool MarkJumpWhenProjecting { get; init; } = true;

@@ -29,6 +29,7 @@ namespace TWCF_BibleApp.Persistence.Repositories
                 ReadingFont = e.ReadingFont,
                 ProjectorTheme = e.ProjectorTheme,
                 ProjectorMargins = e.ProjectorMargins,
+                ProjectorDisplay = e.ProjectorDisplay,
                 ShowAnnotationsWhenProjecting = e.ShowAnnotationsWhenProjecting,
                 MarkJumpWhenProjecting = e.MarkJumpWhenProjecting,
             };
@@ -55,6 +56,7 @@ namespace TWCF_BibleApp.Persistence.Repositories
             entity.ReadingFont = setting.ReadingFont;
             entity.ProjectorTheme = setting.ProjectorTheme;
             entity.ProjectorMargins = setting.ProjectorMargins;
+            entity.ProjectorDisplay = setting.ProjectorDisplay;
             entity.ShowAnnotationsWhenProjecting = setting.ShowAnnotationsWhenProjecting;
             entity.MarkJumpWhenProjecting = setting.MarkJumpWhenProjecting;
 

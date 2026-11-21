@@ -19,6 +19,7 @@ namespace TWCF_BibleApp.Presentation.Views
             _vm.ScrollRequested += OnScrollRequested;
             _vm.PositionRestoreRequested += OnPositionRestoreRequested;
             _vm.GetReadingPosition = GetReadingPosition;
+            _vm.GetFirstVisibleVerseIndex = GetFirstVisibleVerseIndex;
             _vm.ProjectorModeChanged += (_, on) =>
             {
                 KeepCurrentVerseInView();
@@ -32,8 +33,22 @@ namespace TWCF_BibleApp.Presentation.Views
             // Start typing straight away when the note editor opens.
             _vm.PropertyChanged += (_, e) =>
             {
-                if (e.PropertyName == nameof(ReaderViewModel.IsNoteEditorOpen) && _vm.IsNoteEditorOpen)
-                    Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(100), () => NoteEditorText.Focus());
+                switch (e.PropertyName)
+                {
+                    case nameof(ReaderViewModel.IsNoteEditorOpen) when _vm.IsNoteEditorOpen:
+                        Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(100), () => NoteEditorText.Focus());
+                        break;
+                    case nameof(ReaderViewModel.PresentedVerse):
+                        ShowPresentedVerse();
+                        break;
+                    // Anything that changes how much room the verse takes.
+                    case nameof(ReaderViewModel.IsSingleVerseMode):
+                    case nameof(ReaderViewModel.ReadingFontSize):
+                    case nameof(ReaderViewModel.ScriptureFontFamily):
+                    case nameof(ReaderViewModel.LineSpacing):
+                        Dispatcher.Dispatch(FitPresentedVerse);
+                        break;
+                }
             };
             SizeChanged += (_, _) =>
             {
@@ -122,6 +137,19 @@ namespace TWCF_BibleApp.Presentation.Views
                 }
             }
             return null;
+        }
+
+        // The first verse at least half on screen, where presenting one verse at a time starts.
+        private int GetFirstVisibleVerseIndex()
+        {
+            var top = ReadingScroll.ScrollY - VersesLayout.Y;
+            if (top <= 0) return 0;
+            for (var i = 0; i < VersesLayout.Children.Count; i++)
+            {
+                if (VersesLayout.Children[i] is VisualElement v && v.Y + v.Height / 2 > top)
+                    return i;
+            }
+            return 0;
         }
 
         private void OnPositionRestoreRequested(object? sender, int verseIndex)
@@ -250,6 +278,57 @@ namespace TWCF_BibleApp.Presentation.Views
 #endif
         }
 
+        // ---- Presenting one verse at a time -------------------------------------------------
+
+        private const uint VerseFadeMs = 150;
+        private const double MinPresentFontSize = 12;
+
+        // The new verse is already bound; fit it, then fade it in.
+        private void ShowPresentedVerse()
+        {
+            if (!_vm.IsSingleVerseMode) return;
+            PresentSlide.CancelAnimations();
+            PresentSlide.Opacity = 0;
+            // After the binding has handed the label its new verse.
+            Dispatcher.Dispatch(() =>
+            {
+                FitPresentedVerse();
+                _ = PresentSlide.FadeToAsync(1, VerseFadeMs, Easing.CubicOut);
+            });
+        }
+
+        private void PresentTextArea_SizeChanged(object? sender, EventArgs e) => FitPresentedVerse();
+
+        // The reading text size, or smaller if that's what it takes for the whole verse to fit on screen.
+        private void FitPresentedVerse()
+        {
+            if (!_vm.IsSingleVerseMode || PresentVerseText.Verse == null) return;
+
+            var width = PresentTextArea.Width - PresentVerseBorder.Padding.HorizontalThickness;
+            var height = PresentTextArea.Height - PresentVerseBorder.Padding.VerticalThickness;
+            if (width <= 0 || height <= 0) return;
+
+            double HeightAt(double size)
+            {
+                PresentVerseText.FontSize = size;
+                PresentVerseText.RefreshLineHeight();
+                return PresentVerseText.Measure(width, double.PositiveInfinity).Height;
+            }
+
+            var max = _vm.ReadingFontSize;
+            if (HeightAt(max) <= height) return;
+
+            // Halve the gap a few times: within a point or so is plenty.
+            double fits = MinPresentFontSize, tooBig = max;
+            for (var i = 0; i < 8 && tooBig - fits > 0.5; i++)
+            {
+                var mid = (fits + tooBig) / 2;
+                if (HeightAt(mid) <= height) fits = mid;
+                else tooBig = mid;
+            }
+            HeightAt(Math.Floor(fits));
+        }
+
         private void ProjectorControls_PointerEntered(object? sender, PointerEventArgs e) => ProjectorControls.Opacity = 1;
         private void ProjectorControls_PointerExited(object? sender, PointerEventArgs e) => ProjectorControls.Opacity = 0.35;
 
@@ -297,9 +376,20 @@ namespace TWCF_BibleApp.Presentation.Views
             }, skipWhenTyping: true);
             AddShortcut(element, Windows.System.VirtualKey.C, ctrl, () => _vm.CopySelectionCommand.Execute(null), skipWhenTyping: true);
 
-            // Chapter navigation, except while typing in a text box.
-            AddShortcut(element, Windows.System.VirtualKey.Left, none, () => _vm.PreviousChapterCommand.Execute(null), skipWhenTyping: true);
-            AddShortcut(element, Windows.System.VirtualKey.Right, none, () => _vm.NextChapterCommand.Execute(null), skipWhenTyping: true);
+            // Chapter navigation, or verse by verse when presenting one at a time; not while typing.
+            AddShortcut(element, Windows.System.VirtualKey.Left, none,
+                () => (_vm.IsSingleVerseMode ? _vm.PreviousVerseCommand : _vm.PreviousChapterCommand).Execute(null), skipWhenTyping: true);
+            AddShortcut(element, Windows.System.VirtualKey.Right, none,
+                () => (_vm.IsSingleVerseMode ? _vm.NextVerseCommand : _vm.NextChapterCommand).Execute(null), skipWhenTyping: true);
+
+            // Presentation clickers send Page Down / Page Up (some send arrows or Space). These keys only
+            // step through verses when presenting one at a time; otherwise they scroll and press buttons as usual.
+            foreach (var key in new[] { Windows.System.VirtualKey.Down, Windows.System.VirtualKey.PageDown,
+                         Windows.System.VirtualKey.Space, Windows.System.VirtualKey.Enter })
+                AddShortcut(element, key, none, () => StepVerse(_vm.NextVerseCommand));
+            foreach (var key in new[] { Windows.System.VirtualKey.Up, Windows.System.VirtualKey.PageUp,
+                         Windows.System.VirtualKey.Back })
+                AddShortcut(element, key, none, () => StepVerse(_vm.PreviousVerseCommand));
 
             // Ctrl + mouse wheel zooms the text, like a browser.
             element.AddHandler(Microsoft.UI.Xaml.UIElement.PointerWheelChangedEvent,
@@ -312,8 +402,20 @@ namespace TWCF_BibleApp.Presentation.Views
                 }), handledEventsToo: true);
         }
 
+        private bool StepVerse(System.Windows.Input.ICommand command)
+        {
+            if (!_vm.IsSingleVerseMode) return false;
+            command.Execute(null);
+            return true;
+        }
+
         private static void AddShortcut(Microsoft.UI.Xaml.UIElement element, Windows.System.VirtualKey key,
-            Windows.System.VirtualKeyModifiers modifiers, Action action, bool skipWhenTyping = false)
+            Windows.System.VirtualKeyModifiers modifiers, Action action, bool skipWhenTyping = false) =>
+            AddShortcut(element, key, modifiers, () => { action(); return true; }, skipWhenTyping);
+
+        // The action returns false to leave the key alone (it then does whatever it normally does).
+        private static void AddShortcut(Microsoft.UI.Xaml.UIElement element, Windows.System.VirtualKey key,
+            Windows.System.VirtualKeyModifiers modifiers, Func<bool> action, bool skipWhenTyping = false)
         {
             var accelerator = new Microsoft.UI.Xaml.Input.KeyboardAccelerator { Key = key, Modifiers = modifiers };
             accelerator.Invoked += (s, e) =>
@@ -322,8 +424,7 @@ namespace TWCF_BibleApp.Presentation.Views
                         is Microsoft.UI.Xaml.Controls.TextBox)
                     return;
 
-                e.Handled = true;
-                action();
+                e.Handled = action();
             };
             element.KeyboardAccelerators.Add(accelerator);
         }

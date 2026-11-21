@@ -16,6 +16,7 @@ namespace TWCF_BibleApp.Persistence.Entities
         public ReadingFont ReadingFont { get; set; } = ReadingFont.Serif;
         public ProjectorTheme ProjectorTheme { get; set; } = ProjectorTheme.SameAsApp;
         public ProjectorMargins ProjectorMargins { get; set; } = ProjectorMargins.Normal;
+        public ProjectorDisplay ProjectorDisplay { get; set; } = ProjectorDisplay.SingleVerse;
         public bool ShowAnnotationsWhenProjecting { get; set; }
         public bool MarkJumpWhenProjecting { get; set; } = true;
     }
