@@ -266,7 +266,7 @@
             </Grid>
 
             <!-- Reading column -->
-            <ScrollView x:Name="ReadingScroll" Grid.Column="1">
+            <ScrollView x:Name="ReadingScroll" Grid.Column="1" IsVisible="{Binding IsReadingScrollVisible}">
                 <VerticalStackLayout Padding="{Binding ReadingPadding}"
                                      MaximumWidthRequest="{Binding ReadingColumnWidth}"
                                      HorizontalOptions="Center"
@@ -361,6 +361,70 @@
                            TextColor="{DynamicResource MutedTextColor}" />
                 </VerticalStackLayout>
             </ScrollView>
+
+            <!-- ============ PRESENTING ONE VERSE AT A TIME ============ -->
+            <!-- Tap or click the left half to go back, the right half to go on; swipe on a phone. -->
+            <Grid x:Name="PresentStage"
+                  Grid.Column="1"
+                  ZIndex="2"
+                  IsVisible="{Binding IsSingleVerseMode}"
+                  BackgroundColor="{DynamicResource PageBackgroundColor}"
+                  ColumnDefinitions="*,*">
+                <BoxView Color="Transparent" SemanticProperties.Description="Previous verse">
+                    <BoxView.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding PreviousVerseCommand}" />
+                        <SwipeGestureRecognizer Direction="Left" Command="{Binding NextVerseCommand}" />
+                        <SwipeGestureRecognizer Direction="Right" Command="{Binding PreviousVerseCommand}" />
+                    </BoxView.GestureRecognizers>
+                </BoxView>
+                <BoxView Grid.Column="1" Color="Transparent" SemanticProperties.Description="Next verse">
+                    <BoxView.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding NextVerseCommand}" />
+                        <SwipeGestureRecognizer Direction="Left" Command="{Binding NextVerseCommand}" />
+                        <SwipeGestureRecognizer Direction="Right" Command="{Binding PreviousVerseCommand}" />
+                    </BoxView.GestureRecognizers>
+                </BoxView>
+
+                <!-- The verse, sized in code-behind to fit, with its reference underneath -->
+                <Grid x:Name="PresentSlide"
+                      Grid.ColumnSpan="2"
+                      InputTransparent="True"
+                      CascadeInputTransparent="True"
+                      Padding="{Binding ReadingPadding}"
+                      RowDefinitions="*,Auto"
+                      RowSpacing="16">
+                    <Grid x:Name="PresentTextArea" SizeChanged="PresentTextArea_SizeChanged">
+                        <Border x:Name="PresentVerseBorder"
+                                HorizontalOptions="Center"
+                                VerticalOptions="Center"
+                                Padding="16,8"
+                                StrokeThickness="0"
+                                StrokeShape="RoundRectangle 10"
+                                BackgroundColor="{Binding PresentedVerse.HighlightColor, FallbackValue=Transparent}">
+                            <comp:VerseLabel x:Name="PresentVerseText"
+                                             Verse="{Binding PresentedVerse}"
+                                             ShowNumber="False"
+                                             HorizontalTextAlignment="Center"
+                                             FontFamily="{DynamicResource ScriptureFont}"
+                                             TextFontFamily="{Binding ScriptureFontFamily}"
+                                             ShowWordsOfJesus="{Binding ShowWordsOfJesus}"
+                                             LineHeight="{Binding LineSpacing}" />
+                        </Border>
+                    </Grid>
+                    <HorizontalStackLayout Grid.Row="1" HorizontalOptions="Center" Spacing="10">
+                        <Label Text="&#xE70B;"
+                               IsVisible="{Binding PresentedVerse.ShowsNote, FallbackValue=False}"
+                               FontFamily="{StaticResource IconFont}"
+                               FontSize="16"
+                               TextColor="{DynamicResource AccentColor}"
+                               VerticalOptions="Center" />
+                        <Label Text="{Binding PresentedReference}"
+                               FontSize="18"
+                               TextColor="{DynamicResource MutedTextColor}"
+                               VerticalOptions="Center" />
+                    </HorizontalStackLayout>
+                </Grid>
+            </Grid>
 
             <!-- ============ LOADING / ERROR ============ -->
             <ActivityIndicator Grid.Column="1"
@@ -561,6 +625,7 @@
             <!-- Projector mode controls: faint until hovered so they don't distract -->
             <Border x:Name="ProjectorControls"
                     Grid.Column="1"
+                    ZIndex="7"
                     IsVisible="{Binding IsProjectorMode}"
                     HorizontalOptions="End"
                     VerticalOptions="End"
@@ -576,8 +641,10 @@
                                               PointerExited="ProjectorControls_PointerExited" />
                 </Border.GestureRecognizers>
                 <HorizontalStackLayout Spacing="2">
-                    <Button Style="{StaticResource IconButton}" Text="&#xE76B;" Command="{Binding PreviousChapterCommand}" ToolTipProperties.Text="Previous chapter" SemanticProperties.Description="Previous chapter" />
-                    <Button Style="{StaticResource IconButton}" Text="&#xE76C;" Command="{Binding NextChapterCommand}" ToolTipProperties.Text="Next chapter" SemanticProperties.Description="Next chapter" />
+                    <Button Style="{StaticResource IconButton}" Text="&#xE76B;" IsVisible="{Binding IsScrollProjectorMode}" Command="{Binding PreviousChapterCommand}" ToolTipProperties.Text="Previous chapter" SemanticProperties.Description="Previous chapter" />
+                    <Button Style="{StaticResource IconButton}" Text="&#xE76C;" IsVisible="{Binding IsScrollProjectorMode}" Command="{Binding NextChapterCommand}" ToolTipProperties.Text="Next chapter" SemanticProperties.Description="Next chapter" />
+                    <Button Style="{StaticResource IconButton}" Text="&#xE76B;" IsVisible="{Binding IsSingleVerseMode}" Command="{Binding PreviousVerseCommand}" ToolTipProperties.Text="Previous verse (Left arrow)" SemanticProperties.Description="Previous verse" />
+                    <Button Style="{StaticResource IconButton}" Text="&#xE76C;" IsVisible="{Binding IsSingleVerseMode}" Command="{Binding NextVerseCommand}" ToolTipProperties.Text="Next verse (Right arrow)" SemanticProperties.Description="Next verse" />
                     <Button Style="{StaticResource IconButton}" Text="&#xE8E7;" Command="{Binding DecreaseFontCommand}" ToolTipProperties.Text="Smaller text" SemanticProperties.Description="Smaller text" />
                     <Label Text="{Binding FontSizeLabel}" WidthRequest="56" FontSize="13" HorizontalTextAlignment="Center" VerticalOptions="Center" />
                     <Button Style="{StaticResource IconButton}" Text="&#xE8E8;" Command="{Binding IncreaseFontCommand}" ToolTipProperties.Text="Larger text" SemanticProperties.Description="Larger text" />

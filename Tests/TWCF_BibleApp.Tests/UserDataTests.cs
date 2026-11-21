@@ -126,7 +126,7 @@ public sealed class UserDataTests : IDisposable
         {
             LineSpacing = 1.7, ShowVerseNumbers = false, ProjectorTheme = ProjectorTheme.Dark,
             ProjectorMargins = ProjectorMargins.Wide, ShowAnnotationsWhenProjecting = true, MarkJumpWhenProjecting = false,
-            ReadingFont = ReadingFont.SansSerif,
+            ReadingFont = ReadingFont.SansSerif, ProjectorDisplay = ProjectorDisplay.Scroll,
         });
 
         var s = await _service.GetUserSettingAsync();
@@ -136,6 +136,7 @@ public sealed class UserDataTests : IDisposable
         Assert.Equal((1.7, false, ProjectorTheme.Dark, ProjectorMargins.Wide, true, false),
             (s.LineSpacing, s.ShowVerseNumbers, s.ProjectorTheme, s.ProjectorMargins, s.ShowAnnotationsWhenProjecting, s.MarkJumpWhenProjecting));
         Assert.Equal(ReadingFont.SansSerif, s.ReadingFont);
+        Assert.Equal(ProjectorDisplay.Scroll, s.ProjectorDisplay);
     }
 
     [Fact]

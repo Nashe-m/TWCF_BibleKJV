@@ -52,6 +52,9 @@ namespace TWCF_BibleApp.Presentation.ViewModels
 
         /// <summary>Set by the page: the number of the verse at the top of the reading area, or null at the chapter's start.</summary>
         public Func<int?>? GetReadingPosition { get; set; }
+
+        /// <summary>Set by the page: the index of the first verse showing in the reading area (0 at the chapter's start).</summary>
+        public Func<int>? GetFirstVisibleVerseIndex { get; set; }
         public event EventHandler<bool>? ProjectorModeChanged;
 
         public ReaderViewModel(BibleService bibleService, UserService userService, AppSettings settings)
@@ -83,6 +86,9 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             CopySelectionCommand = new AsyncRelayCommand(CopySelectionAsync);
             ShareSelectionCommand = new AsyncRelayCommand(ShareSelectionAsync);
             PresentSelectionCommand = new RelayCommand(PresentSelection);
+            // Concurrent so a quick second press isn't swallowed; a chapter turn guards itself.
+            NextVerseCommand = new AsyncRelayCommand(GoToNextVerseAsync, AsyncRelayCommandOptions.AllowConcurrentExecutions);
+            PreviousVerseCommand = new AsyncRelayCommand(GoToPreviousVerseAsync, AsyncRelayCommandOptions.AllowConcurrentExecutions);
             OpenNoteEditorCommand = new RelayCommand(OpenNoteEditorForSelection);
             OpenNoteCommand = new RelayCommand<VerseItem>(OpenNoteEditorForVerse);
             SaveNoteCommand = new AsyncRelayCommand(SaveNoteAsync);
@@ -115,6 +121,8 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         public IAsyncRelayCommand CopySelectionCommand { get; }
         public IAsyncRelayCommand ShareSelectionCommand { get; }
         public IRelayCommand PresentSelectionCommand { get; }
+        public IAsyncRelayCommand NextVerseCommand { get; }
+        public IAsyncRelayCommand PreviousVerseCommand { get; }
         public IRelayCommand OpenNoteEditorCommand { get; }
         public IRelayCommand<VerseItem> OpenNoteCommand { get; }
         public IAsyncRelayCommand SaveNoteCommand { get; }
@@ -161,7 +169,8 @@ namespace TWCF_BibleApp.Presentation.ViewModels
                 {
                     // Same verse, same marks, in the new version.
                     var marked = VerseRange.FromVerses(Verses.Where(v => v.IsTarget).Select(v => v.Number));
-                    _ = NavigateToAsync(CurrentBookId, CurrentChapter, marked, keepVerse: GetReadingPosition?.Invoke());
+                    var keep = IsSingleVerseMode ? PresentedVerse?.Number : GetReadingPosition?.Invoke();
+                    _ = NavigateToAsync(CurrentBookId, CurrentChapter, marked, keepVerse: keep);
                 }
             }
         }
@@ -246,6 +255,13 @@ namespace TWCF_BibleApp.Presentation.ViewModels
                 case nameof(AppSettings.ProjectorMargins):
                     OnPropertyChanged(nameof(ReadingPadding));
                     break;
+                case nameof(AppSettings.ProjectorDisplay):
+                    if (IsProjectorMode)
+                    {
+                        if (IsSingleVerseMode) SetPresentedIndex(PresentStartIndex());
+                        OnProjectorLayoutChanged();
+                    }
+                    break;
                 case nameof(AppSettings.ShowAnnotationsWhenProjecting):
                     ApplyAnnotations();
                     break;
@@ -296,9 +312,14 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             get => _isProjectorMode;
             set
             {
-                if (!SetField(ref _isProjectorMode, value)) return;
+                if (_isProjectorMode == value) return;
+                var wasSingleVerse = IsSingleVerseMode;
+                // Where to start, worked out before the selection and jump marker are cleared.
+                var start = value ? PresentStartIndex() : -1;
+                SetField(ref _isProjectorMode, value);
                 if (value)
                 {
+                    if (IsSingleVerseMode) SetPresentedIndex(start);
                     CloseSuggestions();
                     IsDisplayMenuOpen = false;
                     CloseNoteEditor();
@@ -313,7 +334,100 @@ namespace TWCF_BibleApp.Presentation.ViewModels
                 OnPropertyChanged(nameof(IsDrawerOpen));
                 OnPropertyChanged(nameof(ReadingColumnWidth));
                 OnPropertyChanged(nameof(ReadingPadding));
+                OnProjectorLayoutChanged();
                 ProjectorModeChanged?.Invoke(this, value);
+                // Back in the chapter at the verse that was on screen.
+                if (wasSingleVerse && !value && _presentIndex >= 0) ScrollRequested?.Invoke(this, _presentIndex);
+            }
+        }
+
+        private void OnProjectorLayoutChanged()
+        {
+            OnPropertyChanged(nameof(IsSingleVerseMode));
+            OnPropertyChanged(nameof(IsScrollProjectorMode));
+            OnPropertyChanged(nameof(IsReadingScrollVisible));
+        }
+
+        // ---- Presenting one verse at a time -------------------------------------------------
+
+        public bool IsSingleVerseMode => IsProjectorMode && _settings.ProjectorDisplay == Domain.Enums.ProjectorDisplay.SingleVerse;
+        public bool IsScrollProjectorMode => IsProjectorMode && !IsSingleVerseMode;
+        // The chapter is hidden behind the single verse, so the keys can't scroll it by mistake.
+        public bool IsReadingScrollVisible => !IsSingleVerseMode;
+
+        private int _presentIndex = -1;
+        // Set while a chapter turn loads, so a second press doesn't skip a whole chapter.
+        private bool _isTurningChapter;
+        // Turning back a chapter lands on its last verse rather than its first.
+        private bool _presentLastVerse;
+
+        public VerseItem? PresentedVerse => _presentIndex >= 0 && _presentIndex < Verses.Count ? Verses[_presentIndex] : null;
+
+        // "John 3:16 · KJV"
+        public string PresentedReference => PresentedVerse is { } v
+            ? $"{ReferenceFor(new[] { v.Number })}  ·  {SelectedTranslation?.Code}"
+            : "";
+
+        private void SetPresentedIndex(int index)
+        {
+            _presentIndex = Verses.Count == 0 ? -1 : Math.Clamp(index, 0, Verses.Count - 1);
+            OnPropertyChanged(nameof(PresentedVerse));
+            OnPropertyChanged(nameof(PresentedReference));
+        }
+
+        // The first selected verse, else the verse jumped to, else the first one on screen.
+        private int PresentStartIndex()
+        {
+            var selected = Verses.ToList().FindIndex(v => v.IsSelected);
+            if (selected >= 0) return selected;
+            var target = Verses.ToList().FindIndex(v => v.IsTarget);
+            if (target >= 0) return target;
+            return GetFirstVisibleVerseIndex?.Invoke() ?? 0;
+        }
+
+        private async Task GoToNextVerseAsync()
+        {
+            if (!IsSingleVerseMode || _isTurningChapter || _currentBook == null) return;
+            if (_presentIndex < Verses.Count - 1)
+            {
+                SetPresentedIndex(_presentIndex + 1);
+                return;
+            }
+
+            // On into the next chapter; Revelation 22:21 is the end.
+            if (CurrentChapter >= _currentBook.Chapters.Count && Neighbour(+1) == null) return;
+            _isTurningChapter = true;
+            try
+            {
+                await GoToNextChapterAsync();
+            }
+            finally
+            {
+                _isTurningChapter = false;
+            }
+        }
+
+        private async Task GoToPreviousVerseAsync()
+        {
+            if (!IsSingleVerseMode || _isTurningChapter || _currentBook == null) return;
+            if (_presentIndex > 0)
+            {
+                SetPresentedIndex(_presentIndex - 1);
+                return;
+            }
+
+            // Back to the last verse of the previous chapter; Genesis 1:1 is the start.
+            if (CurrentChapter <= 1 && Neighbour(-1) == null) return;
+            _isTurningChapter = true;
+            _presentLastVerse = true;
+            try
+            {
+                await GoToPreviousChapterAsync();
+            }
+            finally
+            {
+                _isTurningChapter = false;
+                _presentLastVerse = false;
             }
         }
 
@@ -614,6 +728,11 @@ namespace TWCF_BibleApp.Presentation.ViewModels
 
                 // Versions don't always number verses alike; fall back to the nearest earlier verse.
                 var keepIndex = keepVerse is int kv ? Verses.ToList().FindLastIndex(v => v.Number <= kv) : -1;
+
+                // One verse at a time: the verse kept or jumped to, else the chapter's first (or last, going back).
+                var jumpIndex = Verses.ToList().FindIndex(v => verses.Any(r => r.Contains(v.Number)));
+                SetPresentedIndex(keepIndex >= 0 ? keepIndex : jumpIndex >= 0 ? jumpIndex : _presentLastVerse ? Verses.Count - 1 : 0);
+
                 if (keepIndex >= 0)
                     PositionRestoreRequested?.Invoke(this, keepIndex);
                 else

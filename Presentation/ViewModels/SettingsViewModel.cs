@@ -38,6 +38,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
             SetReadingFontCommand = new RelayCommand<string>(v => Settings.ReadingFont = Enum.Parse<ReadingFont>(v!));
             SetProjectorThemeCommand = new RelayCommand<string>(v => Settings.ProjectorTheme = Enum.Parse<ProjectorTheme>(v!));
             SetProjectorMarginsCommand = new RelayCommand<string>(v => Settings.ProjectorMargins = Enum.Parse<ProjectorMargins>(v!));
+            SetProjectorDisplayCommand = new RelayCommand<string>(v => Settings.ProjectorDisplay = Enum.Parse<ProjectorDisplay>(v!));
             IncreaseFontCommand = new RelayCommand(() => Settings.FontSize = Settings.FontSize < 40 ? Settings.FontSize + 2 : Settings.FontSize * 1.1);
             DecreaseFontCommand = new RelayCommand(() => Settings.FontSize = Settings.FontSize <= 40 ? Settings.FontSize - 2 : Settings.FontSize / 1.1);
             ResetFontCommand = new RelayCommand(() => Settings.FontSize = AppSettings.DefaultFontSize);
@@ -50,6 +51,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         public IRelayCommand<string> SetReadingFontCommand { get; }
         public IRelayCommand<string> SetProjectorThemeCommand { get; }
         public IRelayCommand<string> SetProjectorMarginsCommand { get; }
+        public IRelayCommand<string> SetProjectorDisplayCommand { get; }
         public IRelayCommand IncreaseFontCommand { get; }
         public IRelayCommand DecreaseFontCommand { get; }
         public IRelayCommand ResetFontCommand { get; }
@@ -89,6 +91,9 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         public bool IsMarginsNarrow => Settings.ProjectorMargins == ProjectorMargins.Narrow;
         public bool IsMarginsNormal => Settings.ProjectorMargins == ProjectorMargins.Normal;
         public bool IsMarginsWide => Settings.ProjectorMargins == ProjectorMargins.Wide;
+
+        public bool IsDisplaySingleVerse => Settings.ProjectorDisplay == ProjectorDisplay.SingleVerse;
+        public bool IsDisplayScroll => Settings.ProjectorDisplay == ProjectorDisplay.Scroll;
 
         public string FontSizeLabel => $"{Settings.FontSize:0} pt";
         // The preview shows the real size, up to a point, so the page stays usable.

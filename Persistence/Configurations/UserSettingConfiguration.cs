@@ -20,6 +20,7 @@ namespace TWCF_BibleApp.Persistence.Configurations
             builder.Property(x => x.ReadingFont).IsRequired().HasDefaultValue(ReadingFont.Serif);
             builder.Property(x => x.ProjectorTheme).IsRequired().HasDefaultValue(ProjectorTheme.SameAsApp);
             builder.Property(x => x.ProjectorMargins).IsRequired().HasDefaultValue(ProjectorMargins.Normal);
+            builder.Property(x => x.ProjectorDisplay).IsRequired().HasDefaultValue(ProjectorDisplay.SingleVerse);
             builder.Property(x => x.ShowAnnotationsWhenProjecting).IsRequired().HasDefaultValue(false);
             builder.Property(x => x.MarkJumpWhenProjecting).IsRequired().HasDefaultValue(true);
         }
