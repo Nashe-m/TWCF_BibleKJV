@@ -95,6 +95,24 @@ namespace TWCF_BibleApp.Presentation.Components
         private static void Rebuild(BindableObject bindable, object oldValue, object newValue) =>
             ((VerseLabel)bindable).Rebuild();
 
+        // On Windows a new FontSize doesn't reach spans already converted to runs, and the line height
+        // (a multiple of the platform font size) stays worked out for the old size, so lines overprint.
+        // Rebuild the text, and re-apply the line height once the new size has reached the platform:
+        // this runs before Label's own FontSize callback, so that has to wait a moment.
+        protected override void OnPropertyChanged([System.Runtime.CompilerServices.CallerMemberName] string? propertyName = null)
+        {
+            base.OnPropertyChanged(propertyName);
+            if (propertyName == nameof(FontSize))
+            {
+                if (Verse != null) Rebuild();
+                Dispatcher.Dispatch(RefreshLineHeight);
+            }
+        }
+
+        /// <summary>Re-applies the line height for the current font size. Call it straight after
+        /// setting FontSize when the label is measured at once (e.g. to fit text to a space).</summary>
+        public void RefreshLineHeight() => Handler?.UpdateValue(nameof(LineHeight));
+
         private void Rebuild()
         {
             if (Verse == null)

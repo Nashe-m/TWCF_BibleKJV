@@ -311,6 +311,7 @@ namespace TWCF_BibleApp.Presentation.Views
             double HeightAt(double size)
             {
                 PresentVerseText.FontSize = size;
+                PresentVerseText.RefreshLineHeight();
                 return PresentVerseText.Measure(width, double.PositiveInfinity).Height;
             }
 
@@ -325,7 +326,7 @@ namespace TWCF_BibleApp.Presentation.Views
                 if (HeightAt(mid) <= height) fits = mid;
                 else tooBig = mid;
             }
-            PresentVerseText.FontSize = Math.Floor(fits);
+            HeightAt(Math.Floor(fits));
         }
 
         private void ProjectorControls_PointerEntered(object? sender, PointerEventArgs e) => ProjectorControls.Opacity = 1;

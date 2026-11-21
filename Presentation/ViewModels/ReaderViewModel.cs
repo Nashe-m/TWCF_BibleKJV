@@ -184,6 +184,9 @@ namespace TWCF_BibleApp.Presentation.ViewModels
         public double NoteMarkerSize => Math.Max(40, NoteMarkerFontSize * 2);
         public double ChapterTitleFontSize => Math.Clamp(ReadingFontSize * 1.15, 22, 80);
         public double VerseSpacing => ReadingFontSize * 0.5;
+        // The reference under a presented verse grows with the text, but stays a caption. It follows
+        // the setting rather than each verse's fitted size so it doesn't jump between verses.
+        public double PresentedReferenceFontSize => Math.Clamp(ReadingFontSize * 0.35, 16, 44);
         public string FontSizeLabel => $"{ReadingFontSize:0} pt";
         public double LineSpacing => _settings.LineSpacing;
         public string ScriptureFontFamily => _settings.ScriptureFontFamily;
@@ -232,6 +235,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
                     OnPropertyChanged(nameof(NoteMarkerSize));
                     OnPropertyChanged(nameof(ChapterTitleFontSize));
                     OnPropertyChanged(nameof(VerseSpacing));
+                    OnPropertyChanged(nameof(PresentedReferenceFontSize));
                     OnPropertyChanged(nameof(FontSizeLabel));
                     OnPropertyChanged(nameof(ReadingColumnWidth));
                     break;
@@ -277,6 +281,7 @@ namespace TWCF_BibleApp.Presentation.ViewModels
                     // Everything was (re)loaded.
                     foreach (var name in new[] { nameof(ReadingFontSize), nameof(VerseNumberFontSize), nameof(NoteMarkerFontSize),
                                  nameof(NoteMarkerSize), nameof(ChapterTitleFontSize), nameof(VerseSpacing), nameof(FontSizeLabel),
+                                 nameof(PresentedReferenceFontSize),
                                  nameof(ReadingColumnWidth), nameof(ShowWordsOfJesus), nameof(LineSpacing), nameof(ShowVerseNumbers),
                                  nameof(ReadingPadding), nameof(ScriptureFontFamily) })
                         OnPropertyChanged(name);

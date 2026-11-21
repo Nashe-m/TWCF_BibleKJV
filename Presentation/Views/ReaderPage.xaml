@@ -411,15 +411,15 @@
                                              LineHeight="{Binding LineSpacing}" />
                         </Border>
                     </Grid>
-                    <HorizontalStackLayout Grid.Row="1" HorizontalOptions="Center" Spacing="10">
+                    <HorizontalStackLayout Grid.Row="1" HorizontalOptions="Center" Spacing="12">
                         <Label Text="&#xE70B;"
                                IsVisible="{Binding PresentedVerse.ShowsNote, FallbackValue=False}"
                                FontFamily="{StaticResource IconFont}"
-                               FontSize="16"
+                               FontSize="{Binding PresentedReferenceFontSize}"
                                TextColor="{DynamicResource AccentColor}"
                                VerticalOptions="Center" />
                         <Label Text="{Binding PresentedReference}"
-                               FontSize="18"
+                               FontSize="{Binding PresentedReferenceFontSize}"
                                TextColor="{DynamicResource MutedTextColor}"
                                VerticalOptions="Center" />
                     </HorizontalStackLayout>
